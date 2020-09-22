@@ -4,7 +4,7 @@
 Request is made from Client A to Client B
 
 
-```json
+```js
 symkeyC = ECDH(privKeyCA,pubKeyCB)
 
 topicC = sha256(symKeyC)
@@ -55,7 +55,7 @@ sessionProposal = {
 
 Response is made from Client B to Client A
 
-```json
+```js
 symkeyC = ECDH(privKeyCB,pubKeyCA)
 
 topicC = sha256(symKeyC)
