@@ -2,8 +2,16 @@ import IsomorphicStore from "./store";
 import WakuClient from "./waku";
 
 import { Handshake, Connection, Session } from "./types";
-import { uuid, generateKeyPair, formatUri, deriveSharedKey, sha256 } from "./utils";
+import {
+  uuid,
+  generateKeyPair,
+  formatUri,
+  deriveSharedKey,
+  sha256,
+  sanitizeJsonRpc,
+} from "./utils";
 import { parseUri } from "./utils/uri";
+import { assert } from "console";
 
 class WalletConnectClient {
   public readonly protocol = "wc";
@@ -42,7 +50,12 @@ class WalletConnectClient {
       symKey,
       topic: await sha256(symKey),
     };
-    this.waku.publish(proposal.topic, JSON.stringify({ publicKey: keyPair.publicKey }));
+    this.waku.publish(
+      proposal.topic,
+      JSON.stringify(
+        sanitizeJsonRpc({ method: "wc_initConnection", params: { publicKey: keyPair.publicKey } }),
+      ),
+    );
     this.waku.subscribe(connection.topic, res => this.onConnectionResponse(connection.topic, res));
     return connection.topic;
   }
