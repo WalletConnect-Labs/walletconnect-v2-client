@@ -2,7 +2,7 @@
 
 Request is made from Client A to Client B
 
-```json
+```js
 symkeyC = ECDH(privKeyCA,pubKeyCB)
 
 topicC = sha256(symKeyC)
@@ -10,14 +10,11 @@ topicC = sha256(symKeyC)
 bridge_request = {
     id: 1,
     jsonrpc: "2.0",
-    method: "bridge_post",
+    method: "bridge_publish",
     params: [{
-      pubKey: 'b874f3bbaf031214a567485b703a025cec27d26b2c4457d6b139e56ad8734cea',
-      ttl: 7,
       topic: topicC,
-      powTarget: 2.01,
-      powTime: 2,
-      payload: encryptedPayload
+      message: encryptedPayload
+      ttl: 86400
   }]
 }
 
@@ -53,7 +50,7 @@ sessionProposal = {
 
 Response is made from Client B to Client A
 
-```json
+```js
 symkeyC = ECDH(privKeyCB,pubKeyCA)
 
 topicC = sha256(symKeyC)
@@ -61,14 +58,11 @@ topicC = sha256(symKeyC)
 bridge_request = {
     id: 1,
     jsonrpc: "2.0",
-    method: "bridge_post",
+    method: "bridge_publish",
     params: [{
-      pubKey: 'b874f3bbaf031214a567485b703a025cec27d26b2c4457d6b139e56ad8734cea',
-      ttl: 7,
       topic: topicC,
-      powTarget: 2.01,
-      powTime: 2,
       payload: encryptedPayload
+      ttl: 86400
   }]
 }
 

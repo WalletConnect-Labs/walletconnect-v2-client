@@ -23,6 +23,7 @@ class BridgeClient {
         {
           topic,
           message,
+          ttl: 86400,
         },
       ],
     });
@@ -34,7 +35,10 @@ class BridgeClient {
         id: payloadId(),
         jsonrpc: "2.0",
         method: "bridge_subscribe",
-        params: { topic },
+        params: {
+          topic,
+          ttl: 86400,
+        },
       })
       .then(id => {
         this.events.on(id, listener);
@@ -46,8 +50,7 @@ class BridgeClient {
   private onMessage(e: any) {
     const payload = JSON.parse(e.data);
     if (payload.method === "bridge_subscription") {
-      const { subscription, data } = payload.params;
-      this.events.emit(subscription, data);
+      this.events.emit(payload.params.topic, payload.params.payload);
     } else {
       this.events.emit(`${payload.id}`, payload);
     }
