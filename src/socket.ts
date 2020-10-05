@@ -6,14 +6,14 @@ const WS =
   // @ts-ignore
   typeof global.WebSocket !== "undefined" ? global.WebSocket : require("ws");
 
-export class WakuProvider implements JsonRpcProvider {
+export class BridgeProvider implements JsonRpcProvider {
   private events = new EventEmitter();
 
   public rpcUrl: string;
   public socket: WebSocket;
 
   constructor(rpcUrl?: string) {
-    this.rpcUrl = rpcUrl || "wss://waku.walletconnect.org";
+    this.rpcUrl = rpcUrl || "wss://bridge.walletconnect.org";
     this.socket = new WS(this.rpcUrl);
     this.socket.onmessage = (event: MessageEvent) => this.onMessage(event.data);
   }
@@ -37,7 +37,7 @@ export class WakuProvider implements JsonRpcProvider {
 
   private onMessage(e: any) {
     const payload = JSON.parse(e.data);
-    if (payload.method === "waku_subscription") {
+    if (payload.method === "bridge_subscription") {
       const { subscription, data } = payload.params;
       this.events.emit(subscription, data);
     } else {

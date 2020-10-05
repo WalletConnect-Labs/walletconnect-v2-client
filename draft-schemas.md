@@ -1,18 +1,16 @@
 # Schema for session Agreements
 
-
 Request is made from Client A to Client B
-
 
 ```json
 symkeyC = ECDH(privKeyCA,pubKeyCB)
 
 topicC = sha256(symKeyC)
 
-waku_request = {
+bridge_request = {
     id: 1,
     jsonrpc: "2.0",
-    method: "waku_post",
+    method: "bridge_post",
     params: [{
       pubKey: 'b874f3bbaf031214a567485b703a025cec27d26b2c4457d6b139e56ad8734cea',
       ttl: 7,
@@ -36,7 +34,7 @@ wc_request = {
 sessionProposal = {
     proposer: <DID>,
     transport: {
-        type: "waku",
+        type: "bridge",
         params: {
             pubKey: <PubKey>
         }
@@ -60,10 +58,10 @@ symkeyC = ECDH(privKeyCB,pubKeyCA)
 
 topicC = sha256(symKeyC)
 
-waku_request = {
+bridge_request = {
     id: 1,
     jsonrpc: "2.0",
-    method: "waku_post",
+    method: "bridge_post",
     params: [{
       pubKey: 'b874f3bbaf031214a567485b703a025cec27d26b2c4457d6b139e56ad8734cea',
       ttl: 7,
@@ -86,7 +84,7 @@ if (clientB.supports(wc_request.permissions.operations.jsonrpc)) {
     sessionResponse = {
         responder: <DID>,
         transport: {
-            type: "waku",
+            type: "bridge",
             params: {
                 pubKey: <PubKey>
             }
@@ -97,7 +95,7 @@ if (clientB.supports(wc_request.permissions.operations.jsonrpc)) {
                     accountsIDs,
                     signingCapabilities
                 }]
-            } 
+            }
         }
     }
 } else {
@@ -113,18 +111,9 @@ if (clientB.supports(wc_request.permissions.operations.jsonrpc)) {
 
 ```
 
+Session Transport
 
-Session Transport 
-
-
-if waku
-    - use provided pubKey to generate symKey
-    - publish to derived topic
-if websocket
-    - use provided bridgeUrl to connect
-    - use provided pubKey to generate symKey
-    - publish to derived topic
-if webrtc
-    - use provided offer to establish connection
-else
-    - use waku connection type by default
+if bridge - use provided pubKey to generate symKey - publish to derived topic
+if websocket - use provided bridgeUrl to connect - use provided pubKey to generate symKey - publish to derived topic
+if webrtc - use provided offer to establish connection
+else - use bridge connection type by default

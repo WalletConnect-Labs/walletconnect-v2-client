@@ -1,5 +1,5 @@
 import IsomorphicStore from "./store";
-import WakuClient from "./waku";
+import BridgeClient from "./bridge";
 
 import { Handshake, Connection, Session } from "./types";
 import {
@@ -22,16 +22,16 @@ class WalletConnectClient {
   public sessions: Session[] = [];
 
   public store: IsomorphicStore = new IsomorphicStore();
-  public waku: WakuClient = new WakuClient();
+  public bridge: BridgeClient = new BridgeClient();
 
   public async proposeConnection() {
     const handshake: Handshake = {
       topic: uuid(),
-      relay: "waku",
+      relay: "bridge",
       keyPair: generateKeyPair(),
     };
     this.handshakes.push(handshake);
-    this.waku.subscribe(handshake.topic, res => this.onHandshakeResponse(handshake.topic, res));
+    this.bridge.subscribe(handshake.topic, res => this.onHandshakeResponse(handshake.topic, res));
     return formatUri(this.protocol, this.version, handshake.topic, {
       publicKey: handshake.keyPair.publicKey,
       relay: handshake.relay,
@@ -50,13 +50,15 @@ class WalletConnectClient {
       symKey,
       topic: await sha256(symKey),
     };
-    this.waku.publish(
+    this.bridge.publish(
       proposal.topic,
       JSON.stringify(
         sanitizeJsonRpc({ method: "wc_initConnection", params: { publicKey: keyPair.publicKey } }),
       ),
     );
-    this.waku.subscribe(connection.topic, res => this.onConnectionResponse(connection.topic, res));
+    this.bridge.subscribe(connection.topic, res =>
+      this.onConnectionResponse(connection.topic, res),
+    );
     return connection.topic;
   }
   // ---------- Private ----------------------------------------------- //
@@ -76,7 +78,9 @@ class WalletConnectClient {
       symKey,
       topic: await sha256(symKey),
     };
-    this.waku.subscribe(connection.topic, res => this.onConnectionResponse(connection.topic, res));
+    this.bridge.subscribe(connection.topic, res =>
+      this.onConnectionResponse(connection.topic, res),
+    );
     return connection.topic;
   }
 
