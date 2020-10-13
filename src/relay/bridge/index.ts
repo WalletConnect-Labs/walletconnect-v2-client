@@ -1,10 +1,10 @@
 import { EventEmitter } from "events";
 
-import { JsonRpcProvider } from "./types";
-import { BridgeProvider } from "./socket";
-import { payloadId } from "./utils";
+import { JsonRpcProvider, RelayClient } from "../../types";
+import { BridgeProvider } from "./provider";
+import { payloadId } from "../../utils";
 
-class BridgeClient {
+export class BridgeClient implements RelayClient {
   private events = new EventEmitter();
 
   public provider: JsonRpcProvider;
@@ -13,6 +13,8 @@ class BridgeClient {
     this.provider = provider || new BridgeProvider();
     this.provider.on("message", this.onMessage);
   }
+
+  public init() {}
 
   public publish(topic: string, message: string) {
     this.provider.request({
@@ -56,5 +58,3 @@ class BridgeClient {
     }
   }
 }
-
-export default BridgeClient;

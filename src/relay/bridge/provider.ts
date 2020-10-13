@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 
-import { JsonRpcRequest, JsonRpcProvider } from "./types";
+import { JsonRpcRequest, JsonRpcProvider } from "../../types";
 
 const WS =
   // @ts-ignore
@@ -10,16 +10,36 @@ export class BridgeProvider implements JsonRpcProvider {
   private events = new EventEmitter();
 
   public rpcUrl: string;
-  public socket: WebSocket;
+  public socket: WebSocket | undefined;
 
   constructor(rpcUrl?: string) {
     this.rpcUrl = rpcUrl || "wss://bridge.walletconnect.org";
-    this.socket = new WS(this.rpcUrl);
-    this.socket.onmessage = (event: MessageEvent) => this.onMessage(event.data);
+  }
+
+  public async connect() {
+    const socket = new WS(this.rpcUrl);
+    socket.onmessage = (event: MessageEvent) => this.onMessage(event.data);
+    this.socket = socket;
+  }
+
+  public async disconnect() {
+    if (typeof this.socket === "undefined") {
+      throw new Error("Socket is not connected");
+    }
+    this.socket.close();
+    this.socket = undefined;
   }
 
   public on(event: string, listener: any): void {
     this.events.on(event, listener);
+  }
+
+  public once(event: string, listener: any): void {
+    this.events.once(event, listener);
+  }
+
+  public off(event: string, listener: any): void {
+    this.events.off(event, listener);
   }
 
   public async request(payload: JsonRpcRequest): Promise<any> {
@@ -31,6 +51,9 @@ export class BridgeProvider implements JsonRpcProvider {
           resolve(response.result);
         }
       });
+      if (typeof this.socket === "undefined") {
+        throw new Error("Socket is not connected");
+      }
       this.socket.send(JSON.stringify(payload));
     });
   }

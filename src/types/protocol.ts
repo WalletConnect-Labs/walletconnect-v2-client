@@ -1,24 +1,31 @@
 import { KeyPair } from "./crypto";
 
-/**
- * @description Handshake describes pending key exchanges for connection prompts
- */
-export interface Handshake {
+export interface ConnectionPending {
   relay: string;
   topic: string;
   keyPair: KeyPair;
 }
 
-/**
- * @description Connection describes secure channel parameters between devices
- */
-export interface Connection {
+export interface ConnectionProposal {
+  relay: string;
+  publicKey: string;
+}
+
+export interface ConnectionActive {
   relay: string;
   topic: string;
   symKey: string;
 }
 
-/**
- * @description Session describes session agreements betwen applications
- */
-export interface Session {}
+export interface ConnectionMetadata {
+  os: string;
+  env: string;
+}
+
+export interface SessionPending {}
+
+export interface SessionProposal {}
+
+export interface SessionActive {}
+
+export interface SessionMetadata {}

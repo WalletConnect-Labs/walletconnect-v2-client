@@ -1,4 +1,6 @@
-class IsomorphicStore {
+import { KeyValueStore } from "../types";
+
+export class Store implements KeyValueStore {
   public async set(key: string, data: any): Promise<void> {
     return;
   }
@@ -9,5 +11,3 @@ class IsomorphicStore {
     return;
   }
 }
-
-export default IsomorphicStore;
