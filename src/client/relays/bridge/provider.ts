@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 
-import { JsonRpcRequest, JsonRpcProvider } from "../../types";
+import { JsonRpcRequest, JsonRpcProvider } from "../../../types";
 
 const WS =
   // @ts-ignore

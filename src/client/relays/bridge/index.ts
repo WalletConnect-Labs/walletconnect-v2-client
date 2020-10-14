@@ -1,10 +1,10 @@
 import { EventEmitter } from "events";
 
-import { JsonRpcProvider, RelayClient } from "../../types";
+import { JsonRpcProvider, IRelayClient } from "../../../types";
 import { BridgeProvider } from "./provider";
-import { payloadId } from "../../utils";
+import { payloadId } from "../../../utils";
 
-export class BridgeClient implements RelayClient {
+export class BridgeClient implements IRelayClient {
   private events = new EventEmitter();
 
   public provider: JsonRpcProvider;
@@ -44,6 +44,22 @@ export class BridgeClient implements RelayClient {
       })
       .then(id => {
         this.events.on(id, listener);
+      });
+  };
+
+  public unsubscribe = (topic: string, listener: (...args: any[]) => void): any => {
+    return this.provider
+      .request({
+        id: payloadId(),
+        jsonrpc: "2.0",
+        method: "bridge_unsubscribe",
+        params: {
+          topic,
+          ttl: 86400,
+        },
+      })
+      .then(id => {
+        this.events.off(id, listener);
       });
   };
 

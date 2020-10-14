@@ -2,6 +2,6 @@ import { BridgeClient } from "./bridge";
 
 export * from "./bridge";
 
-export const RelayClientMapping = {
+export const Relays = {
   bridge: BridgeClient,
 };

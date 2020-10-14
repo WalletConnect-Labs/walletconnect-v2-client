@@ -1,10 +1,13 @@
-import { AbstractController } from "./abstract";
+import { EventEmitter } from "events";
 
 import {
-  WalletConnectClient,
-  ConnectionPending,
-  ConnectionActive,
+  IClient,
+  ConnectionProposed,
+  ConnectionCreated,
   ConnectionProposal,
+  IConnectionController,
+  ConnectionProposeOptions,
+  ConnectionRespondOptions,
 } from "../../types";
 import {
   uuid,
@@ -14,38 +17,43 @@ import {
   deriveSharedKey,
   sha256,
   sanitizeJsonRpc,
+  assertType,
 } from "../../utils";
+import { SubscriptionController } from "./subscription";
 
-export class ConnectionController implements AbstractController {
-  public pending: ConnectionPending[] = [];
-  public active: ConnectionActive[] = [];
+export class ConnectionController implements IConnectionController {
+  public proposed: SubscriptionController<ConnectionProposed>;
+  public created: SubscriptionController<ConnectionCreated>;
 
-  constructor(public client: WalletConnectClient) {}
+  private events = new EventEmitter();
 
-  public async propose(opts?: { relay: string }): Promise<string> {
+  constructor(public client: IClient) {
+    this.proposed = new SubscriptionController<ConnectionProposed>(client, "proposed");
+    this.proposed.on("payload", (payload: any) => this.onResponse(payload));
+    this.created = new SubscriptionController<ConnectionCreated>(client, "created");
+    this.created.on("payload", (payload: any) => this.onMessage(payload));
+  }
+
+  public async propose(opts?: ConnectionProposeOptions): Promise<string> {
     const relay = opts?.relay || this.client.relay.default;
-    const setup: ConnectionPending = {
+    const setup: ConnectionProposed = {
       topic: uuid(),
       relay,
       keyPair: generateKeyPair(),
     };
-    this.pending.push(setup);
+    await this.proposed.set(setup.topic, setup);
 
-    this.client.relay.clients[setup.relay].subscribe(setup.topic, res =>
-      this.onResponse(setup.topic, res),
-    );
     const proposal: ConnectionProposal = {
-      publicKey: setup.keyPair.publicKey,
       relay: setup.relay,
+      topic: setup.topic,
+      publicKey: setup.keyPair.publicKey,
     };
     return formatUri(this.client.protocol, this.client.version, setup.topic, proposal);
   }
 
-  public async respond(opts: { uri: string }) {
+  public async respond(opts: ConnectionRespondOptions) {
     const proposal = parseUri(opts.uri);
-    if (!proposal.publicKey || typeof proposal.publicKey !== "string") {
-      throw new Error("Missing or invalid public key received");
-    }
+    assertType(proposal, "publicKey", "string");
     const keyPair = generateKeyPair();
     const relay = proposal.relay;
     const connection = await this.create({
@@ -53,7 +61,7 @@ export class ConnectionController implements AbstractController {
       privateKey: keyPair.privateKey,
       publicKey: proposal.publicKey,
     });
-    this.client.relay.clients[relay].publish(
+    this.client.relay.publish(
       proposal.topic,
       JSON.stringify(
         sanitizeJsonRpc({
@@ -61,45 +69,40 @@ export class ConnectionController implements AbstractController {
           params: { publicKey: keyPair.publicKey },
         }),
       ),
-    );
-    this.client.relay.clients[relay].subscribe(connection.topic, res =>
-      this.onAcknowledge(connection.topic, res),
+      relay,
     );
     return connection.topic;
   }
 
   public async create(opts: { relay: string; privateKey: string; publicKey: string }) {
     const symKey = deriveSharedKey(opts.privateKey, opts.publicKey);
-    const connection: ConnectionActive = {
+    const connection: ConnectionCreated = {
       relay: opts.relay,
       symKey,
       topic: await sha256(symKey),
     };
-    this.active.push(connection);
+    await this.created.set(connection.topic, connection);
     return connection;
   }
 
-  public async delete() {}
+  public async delete(opts: { topic: string }) {}
 
-  public async onResponse(topic: string, response: any) {
-    const pending = this.pending.find(h => h.topic === topic);
-    if (!pending) {
-      throw new Error("No matching pending connection setups");
+  public async onResponse(payload: any): Promise<void> {
+    const topic = payload.topic;
+    const proposed = await this.proposed.get(topic);
+    if (!proposed) {
+      throw new Error("No matching proposed connection setups");
     }
-    if (!response.publicKey || typeof response.publicKey !== "string") {
-      throw new Error("Missing or invalid public key received");
-    }
-    this.pending = this.pending.filter(h => h.topic === pending.topic);
+    assertType(payload, "publicKey", "string");
     const connection = await this.create({
-      relay: response.relay,
-      privateKey: pending.keyPair.privateKey,
-      publicKey: response.publicKey,
+      relay: payload.relay,
+      privateKey: proposed.keyPair.privateKey,
+      publicKey: payload.publicKey,
     });
-    this.client.relay.clients[connection.relay].subscribe(topic, res =>
-      this.onResponse(topic, res),
-    );
+    await this.proposed.del(topic);
+    this.client.relay.subscribe(topic, res => this.onResponse(res), connection.relay);
     return topic;
   }
 
-  public async onAcknowledge(topic: string, response: any) {}
+  public async onMessage(payload: any): Promise<void> {}
 }

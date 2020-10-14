@@ -1,22 +1,35 @@
-import { AbstractController } from "./abstract";
+import { EventEmitter } from "events";
 
-import { WalletConnectClient, SessionPending, SessionActive } from "../../types";
+import { SubscriptionController } from "./subscription";
+import {
+  IClient,
+  SessionProposed,
+  SessionCreated,
+  IProtocolController,
+  ISessionController,
+} from "../../types";
 
-export class SessionController implements AbstractController {
-  public pending: SessionPending[] = [];
-  public active: SessionActive[] = [];
+export class SessionController implements ISessionController {
+  public proposed: SubscriptionController<SessionProposed>;
+  public created: SubscriptionController<SessionCreated>;
 
-  constructor(public client: WalletConnectClient) {}
+  private events = new EventEmitter();
 
-  public async propose() {}
+  constructor(public client: IClient) {
+    this.proposed = new SubscriptionController<SessionProposed>(client, "proposed");
+    this.proposed.on("payload", (payload: any) => this.onResponse(payload));
+    this.created = new SubscriptionController<SessionCreated>(client, "created");
+    this.created.on("payload", (payload: any) => this.onMessage(payload));
+  }
+  public async propose(): Promise<void> {}
 
-  public async respond() {}
+  public async respond(): Promise<void> {}
 
-  public async create(uri: string) {}
+  public async create(): Promise<void> {}
 
-  public async delete() {}
+  public async delete(): Promise<void> {}
 
-  public async onResponse(topic: string, response: any) {}
+  public async onResponse(payload: any): Promise<void> {}
 
-  public async onAcknowledge(topic: string, response: any) {}
+  public async onMessage(payload: any): Promise<void> {}
 }

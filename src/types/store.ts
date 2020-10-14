@@ -1,5 +1,5 @@
-export abstract class KeyValueStore {
+export abstract class IStoreController {
   public abstract set(key: string, data: any): Promise<void>;
   public abstract get(key: string): Promise<any>;
-  public abstract remove(key: string): Promise<void>;
+  public abstract del(key: string): Promise<void>;
 }
