@@ -23,7 +23,7 @@ export class Session implements ISession {
 
   public async delete(): Promise<void> {}
 
-  public async onResponse(payload: any): Promise<void> {}
+  public async onResponse(request: any): Promise<void> {}
 
-  public async onMessage(payload: any): Promise<void> {}
+  public async onMessage(message: any): Promise<void> {}
 }

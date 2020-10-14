@@ -8,6 +8,8 @@ import {
   IConnection,
   ConnectionProposeOptions,
   ConnectionRespondOptions,
+  ConnectionCreateOptions,
+  ConnectionDeleteOptions,
 } from "../../types";
 import {
   generateKeyPair,
@@ -15,9 +17,11 @@ import {
   formatUri,
   deriveSharedKey,
   sha256,
-  sanitizeJsonRpc,
+  formatJsonRpcRequest,
   assertType,
   generateTopic,
+  formatJsonRpcError,
+  formatJsonRpcResult,
 } from "../../utils";
 import { Subscription } from "./subscription";
 
@@ -61,20 +65,11 @@ export class Connection implements IConnection {
       privateKey: keyPair.privateKey,
       publicKey: proposal.publicKey,
     });
-    this.client.relay.publish(
-      proposal.topic,
-      JSON.stringify(
-        sanitizeJsonRpc({
-          method: "wc_respondConnection",
-          params: { publicKey: keyPair.publicKey },
-        }),
-      ),
-      relay,
-    );
+    this.publishResponse(proposal, connection);
     return connection.topic;
   }
 
-  public async create(opts: { relay: string; privateKey: string; publicKey: string }) {
+  public async create(opts: ConnectionCreateOptions) {
     const symKey = deriveSharedKey(opts.privateKey, opts.publicKey);
     const connection: ConnectionCreated = {
       relay: opts.relay,
@@ -85,21 +80,43 @@ export class Connection implements IConnection {
     return connection;
   }
 
-  public async delete(opts: { topic: string }) {}
+  public async delete(opts: ConnectionDeleteOptions) {}
 
-  public async onResponse(payload: any): Promise<void> {
-    const topic = payload.topic;
+  public async onResponse(request: any): Promise<void> {
+    const topic = request.topic;
     const proposed = await this.proposed.get(topic);
-    assertType(payload, "publicKey", "string");
-    const connection = await this.create({
-      relay: payload.relay,
-      privateKey: proposed.keyPair.privateKey,
-      publicKey: payload.publicKey,
-    });
+    try {
+      assertType(request, "publicKey", "string");
+      await this.create({
+        relay: request.relay,
+        privateKey: proposed.keyPair.privateKey,
+        publicKey: request.publicKey,
+      });
+      const response = formatJsonRpcResult(request.id, true);
+      this.client.relay.publish(topic, JSON.stringify(response), proposed.relay);
+    } catch (e) {
+      const response = formatJsonRpcError(request.id, e.message);
+      this.client.relay.publish(topic, JSON.stringify(response), proposed.relay);
+    }
     await this.proposed.del(topic);
-    this.client.relay.subscribe(topic, res => this.onResponse(res), connection.relay);
     return topic;
   }
 
-  public async onMessage(payload: any): Promise<void> {}
+  public async onMessage(message: any): Promise<void> {}
+
+  // ---------- Private ----------------------------------------------- //
+
+  private async publishResponse(proposal: ConnectionProposal, connection: ConnectionCreated) {
+    const request = formatJsonRpcRequest("wc_respondConnection", { publicKey: proposal.publicKey });
+    this.client.relay.publish(proposal.topic, JSON.stringify(request), proposal.relay);
+    this.client.relay.subscribe(
+      proposal.topic,
+      (response: any) => {
+        if (response.error) {
+          this.created.del(connection.topic);
+        }
+      },
+      proposal.relay,
+    );
+  }
 }

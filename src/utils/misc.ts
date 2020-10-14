@@ -32,22 +32,6 @@ export async function generateTopic(): Promise<string> {
   return await sha256(uuid());
 }
 
-// -- jsonrpc -------------------------------------------------- //
-
-export function sanitizeJsonRpc(payload: Partial<JsonRpcRequest>) {
-  const request: JsonRpcRequest = {
-    id: payloadId(),
-    jsonrpc: "2.0",
-    method: "",
-    params: {},
-    ...payload,
-  };
-  if (!(typeof request.method === "string" && !!request.method.trim())) {
-    throw new Error(`Invalid or missing method`);
-  }
-  return request;
-}
-
 // -- assert ------------------------------------------------- //
 
 export function assertType(obj: any, key: string, type: string) {

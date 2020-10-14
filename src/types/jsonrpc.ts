@@ -14,10 +14,12 @@ export interface JsonRpcResult {
 export interface JsonRpcError {
   id: number;
   jsonrpc: string;
-  error: {
-    code: number;
-    message: string;
-  };
+  error: ErrorResponse;
+}
+
+export interface ErrorResponse {
+  code: number;
+  message: string;
 }
 
 export interface JsonRpcProvider {
