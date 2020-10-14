@@ -1,4 +1,4 @@
-import { IClient, IProtocolController, ISubscriptionController } from "./client";
+import { IClient, IProtocol, ISubscription } from "./client";
 import { KeyPair } from "./crypto";
 
 export interface ConnectionProposeOptions {
@@ -40,9 +40,9 @@ export interface ConnectionMetadata {
   env: string;
 }
 
-export abstract class IConnectionController implements IProtocolController {
-  public abstract proposed: ISubscriptionController<ConnectionProposed>;
-  public abstract created: ISubscriptionController<ConnectionCreated>;
+export abstract class IConnection implements IProtocol {
+  public abstract proposed: ISubscription<ConnectionProposed>;
+  public abstract created: ISubscription<ConnectionCreated>;
 
   constructor(public client: IClient) {}
 

@@ -14,7 +14,7 @@ export abstract class IRelayClient {
   public abstract unsubscribe(topic: string, listener: (...args: any[]) => void): any;
 }
 
-export abstract class IRelayController {
+export abstract class IRelay {
   public abstract default: string;
   public abstract clients: RelayClients;
 

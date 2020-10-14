@@ -1,6 +1,6 @@
-import { IStoreController } from "../../types";
+import { IStore } from "../../types";
 
-export class StoreController implements IStoreController {
+export class Store implements IStore {
   public async set(key: string, data: any): Promise<void> {
     return;
   }

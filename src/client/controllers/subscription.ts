@@ -1,8 +1,8 @@
 import { EventEmitter } from "events";
 
-import { IClient, ISubscriptionController } from "../../types";
+import { IClient, ISubscription } from "../../types";
 
-export class SubscriptionController<T = any> implements ISubscriptionController<T> {
+export class Subscription<T = any> implements ISubscription<T> {
   public subscriptions = new Map<string, T>();
 
   private events = new EventEmitter();
@@ -18,7 +18,7 @@ export class SubscriptionController<T = any> implements ISubscriptionController<
   public async get(topic: string): Promise<T> {
     const subscription = this.subscriptions.get(topic);
     if (!subscription) {
-      throw new Error("No matching proposed connection setups");
+      throw new Error(`No matching ${this.name} subscriptions with topic: ${topic}`);
     }
     return subscription;
   }

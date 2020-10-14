@@ -1,4 +1,4 @@
-export abstract class IStoreController {
+export abstract class IStore {
   public abstract set(key: string, data: any): Promise<void>;
   public abstract get(key: string): Promise<any>;
   public abstract del(key: string): Promise<void>;

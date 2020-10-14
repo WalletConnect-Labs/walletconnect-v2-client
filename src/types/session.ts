@@ -1,13 +1,13 @@
-import { IClient, IProtocolController, ISubscriptionController } from "./client";
+import { IClient, IProtocol, ISubscription } from "./client";
 
 export interface SessionProposeOptions {}
 export interface SessionRespondOptions {}
 export interface SessionCreateOptions {}
 export interface SessionDeleteOptions {}
 
-export abstract class ISessionController implements IProtocolController {
-  public abstract proposed: ISubscriptionController<SessionProposed>;
-  public abstract created: ISubscriptionController<SessionCreated>;
+export abstract class ISession implements IProtocol {
+  public abstract proposed: ISubscription<SessionProposed>;
+  public abstract created: ISubscription<SessionCreated>;
 
   constructor(public client: IClient) {}
 

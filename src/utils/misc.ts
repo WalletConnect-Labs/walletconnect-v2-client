@@ -2,6 +2,7 @@ import * as safeJsonUtils from "safe-json-utils";
 import * as rpcPayloadId from "rpc-payload-id";
 
 import { JsonRpcRequest } from "../types";
+import { sha256 } from "./crypto";
 
 // -- JSON -------------------------------------------------- //
 
@@ -25,6 +26,10 @@ export function uuid(): string {
     return b;
   })();
   return result;
+}
+
+export async function generateTopic(): Promise<string> {
+  return await sha256(uuid());
 }
 
 // -- jsonrpc -------------------------------------------------- //

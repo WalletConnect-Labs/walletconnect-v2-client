@@ -5,12 +5,11 @@ import {
   ConnectionProposed,
   ConnectionCreated,
   ConnectionProposal,
-  IConnectionController,
+  IConnection,
   ConnectionProposeOptions,
   ConnectionRespondOptions,
 } from "../../types";
 import {
-  uuid,
   generateKeyPair,
   parseUri,
   formatUri,
@@ -18,27 +17,28 @@ import {
   sha256,
   sanitizeJsonRpc,
   assertType,
+  generateTopic,
 } from "../../utils";
-import { SubscriptionController } from "./subscription";
+import { Subscription } from "./subscription";
 
-export class ConnectionController implements IConnectionController {
-  public proposed: SubscriptionController<ConnectionProposed>;
-  public created: SubscriptionController<ConnectionCreated>;
+export class Connection implements IConnection {
+  public proposed: Subscription<ConnectionProposed>;
+  public created: Subscription<ConnectionCreated>;
 
   private events = new EventEmitter();
 
   constructor(public client: IClient) {
-    this.proposed = new SubscriptionController<ConnectionProposed>(client, "proposed");
+    this.proposed = new Subscription<ConnectionProposed>(client, "proposed");
     this.proposed.on("payload", (payload: any) => this.onResponse(payload));
-    this.created = new SubscriptionController<ConnectionCreated>(client, "created");
+    this.created = new Subscription<ConnectionCreated>(client, "created");
     this.created.on("payload", (payload: any) => this.onMessage(payload));
   }
 
   public async propose(opts?: ConnectionProposeOptions): Promise<string> {
     const relay = opts?.relay || this.client.relay.default;
     const setup: ConnectionProposed = {
-      topic: uuid(),
       relay,
+      topic: await generateTopic(),
       keyPair: generateKeyPair(),
     };
     await this.proposed.set(setup.topic, setup);
@@ -90,9 +90,6 @@ export class ConnectionController implements IConnectionController {
   public async onResponse(payload: any): Promise<void> {
     const topic = payload.topic;
     const proposed = await this.proposed.get(topic);
-    if (!proposed) {
-      throw new Error("No matching proposed connection setups");
-    }
     assertType(payload, "publicKey", "string");
     const connection = await this.create({
       relay: payload.relay,

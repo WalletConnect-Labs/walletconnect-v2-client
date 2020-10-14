@@ -1,7 +1,7 @@
 import { Relays } from "../relays";
 import { RelayUserOptions, RelayClients } from "../../types";
 
-export abstract class IRelayController {
+export abstract class IRelay {
   public abstract default: string;
   public abstract clients: RelayClients;
 
@@ -18,7 +18,7 @@ export abstract class IRelayController {
   ): any;
 }
 
-export class RelayController {
+export class Relay {
   public default = "bridge";
   public clients: RelayClients = {};
 

@@ -1,9 +1,9 @@
-import { IRelayController, RelayUserOptions } from "./relay";
-import { IConnectionController } from "./connection";
-import { ISessionController } from "./session";
-import { IStoreController } from "./store";
+import { IRelay, RelayUserOptions } from "./relay";
+import { IConnection } from "./connection";
+import { ISession } from "./session";
+import { IStore } from "./store";
 
-export abstract class ISubscriptionController<T> {
+export abstract class ISubscription<T> {
   public abstract subscriptions = new Map<string, T>();
 
   constructor(public client: IClient, public name = "") {}
@@ -18,11 +18,11 @@ export abstract class ISubscriptionController<T> {
   public abstract off(event: string, listener: any): void;
 }
 
-export abstract class IProtocolController {
+export abstract class IProtocol {
   // proposed subscriptions
-  public abstract proposed: ISubscriptionController<any>;
+  public abstract proposed: ISubscription<any>;
   // created subscriptions
-  public abstract created: ISubscriptionController<any>;
+  public abstract created: ISubscription<any>;
 
   constructor(public client: IClient) {}
 
@@ -42,7 +42,7 @@ export abstract class IProtocolController {
 }
 
 export interface ClientOptions {
-  store?: IStoreController;
+  store?: IStore;
   relay?: RelayUserOptions;
 }
 
@@ -50,11 +50,11 @@ export abstract class IClient {
   public readonly protocol = "wc";
   public readonly version = 2;
 
-  public abstract connection: IConnectionController;
-  public abstract session: ISessionController;
+  public abstract connection: IConnection;
+  public abstract session: ISession;
 
-  public abstract store: IStoreController;
-  public abstract relay: IRelayController;
+  public abstract store: IStore;
+  public abstract relay: IRelay;
 
   constructor(opts: ClientOptions) {}
 
