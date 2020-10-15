@@ -3,17 +3,18 @@ import { EventEmitter } from "events";
 import { Subscription } from "./subscription";
 import { IClient, SessionProposed, SessionCreated, IProtocol, ISession } from "../../types";
 
-export class Session implements ISession {
+export class Session extends ISession {
   public proposed: Subscription<SessionProposed>;
   public created: Subscription<SessionCreated>;
 
   private events = new EventEmitter();
 
   constructor(public client: IClient) {
+    super(client);
     this.proposed = new Subscription<SessionProposed>(client, "proposed");
-    this.proposed.on("payload", (payload: any) => this.onResponse(payload));
+    this.proposed.on("message", ({ topic, message }) => this.onResponse(topic, message));
     this.created = new Subscription<SessionCreated>(client, "created");
-    this.created.on("payload", (payload: any) => this.onMessage(payload));
+    this.created.on("message", ({ topic, message }) => this.onMessage(topic, message));
   }
   public async propose(): Promise<void> {
     // TODO: implement propose
@@ -31,11 +32,13 @@ export class Session implements ISession {
     // TODO: implemen deletet
   }
 
-  public async onResponse(request: any): Promise<void> {
+  // ---------- Protected ----------------------------------------------- //
+
+  protected async onResponse(topic: string, message: string): Promise<void> {
     // TODO: implement onResponse
   }
 
-  public async onMessage(message: any): Promise<void> {
-    // TODO: implement onMessage
+  protected async onMessage(topic: string, message: string) {
+    this.events.emit("message", { topic, message });
   }
 }

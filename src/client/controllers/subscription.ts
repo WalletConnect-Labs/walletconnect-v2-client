@@ -2,19 +2,23 @@ import { EventEmitter } from "events";
 
 import { IClient, ISubscription } from "../../types";
 
-export class Subscription<T = any> implements ISubscription<T> {
+export class Subscription<T = any> extends ISubscription<T> {
   public subscriptions = new Map<string, T>();
 
   private events = new EventEmitter();
 
   constructor(public client: IClient, public name = "") {
-    // empty
+    super(client, name);
   }
 
   public async set(topic: string, subscription: T): Promise<void> {
     this.subscriptions.set(topic, subscription);
     this.events.emit("created", subscription);
-    this.client.relay.subscribe(topic, this.onPayload.bind(this), (subscription as any).relay);
+    this.client.relay.subscribe(
+      topic,
+      (message: string) => this.onMessage(topic, message),
+      (subscription as any).relay,
+    );
   }
 
   public async get(topic: string): Promise<T> {
@@ -27,7 +31,11 @@ export class Subscription<T = any> implements ISubscription<T> {
 
   public async del(topic: string): Promise<void> {
     const subscription = await this.get(topic);
-    this.client.relay.unsubscribe(topic, this.onPayload.bind(this), (subscription as any).relay);
+    this.client.relay.unsubscribe(
+      topic,
+      (message: string) => this.onMessage(topic, message),
+      (subscription as any).relay,
+    );
     this.events.emit("deleted", subscription);
   }
 
@@ -41,9 +49,9 @@ export class Subscription<T = any> implements ISubscription<T> {
     this.events.off(event, listener);
   }
 
-  // ---------- Private ----------------------------------------------- //
+  // ---------- Protected ----------------------------------------------- //
 
-  private async onPayload(payload: any) {
-    this.events.emit("payload", payload);
+  protected async onMessage(topic: string, message: string) {
+    this.events.emit("message", { topic, message });
   }
 }

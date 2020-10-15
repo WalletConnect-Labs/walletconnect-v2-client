@@ -1,10 +1,12 @@
 import { IClient, IProtocol, ISubscription } from "./client";
+import { KeyPair } from "./crypto";
 
 export interface SessionProposeOptions {
-  topic: string;
+  relay: string;
 }
 export interface SessionRespondOptions {
-  topic: string;
+  relay: string;
+  publicKey: string;
 }
 export interface SessionCreateOptions {
   topic: string;
@@ -13,12 +15,36 @@ export interface SessionDeleteOptions {
   topic: string;
 }
 
-export abstract class ISession implements IProtocol {
+export interface SessionProposed {
+  relay: string;
+  topic: string;
+  keyPair: KeyPair;
+}
+
+export interface SessionProposal {
+  relay: string;
+  publicKey: string;
+}
+
+export interface SessionCreated {
+  relay: string;
+  topic: string;
+  symKey: string;
+}
+
+export interface SessionMetadata {
+  name: string;
+  description: string;
+  url: string;
+  icons: string[];
+}
+
+export abstract class ISession extends IProtocol {
   public abstract proposed: ISubscription<SessionProposed>;
   public abstract created: ISubscription<SessionCreated>;
 
   constructor(public client: IClient) {
-    // empty
+    super(client);
   }
 
   public abstract propose(opts?: SessionProposeOptions): Promise<void>;
@@ -29,26 +55,9 @@ export abstract class ISession implements IProtocol {
 
   public abstract delete(opts: SessionDeleteOptions): Promise<void>;
 
-  public abstract onResponse(payload: any): Promise<void>;
+  // ---------- Protected ----------------------------------------------- //
 
-  public abstract onMessage(payload: any): Promise<void>;
-}
+  protected abstract onResponse(topic: string, message: string): Promise<void>;
 
-export interface SessionProposed {
-  topic: string;
-}
-
-export interface SessionProposal {
-  topic: string;
-}
-
-export interface SessionCreated {
-  topic: string;
-}
-
-export interface SessionMetadata {
-  name: string;
-  description: string;
-  url: string;
-  icons: string[];
+  protected abstract onMessage(topic: string, message: string): Promise<void>;
 }

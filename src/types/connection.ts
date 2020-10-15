@@ -25,7 +25,6 @@ export interface ConnectionProposed {
 
 export interface ConnectionProposal {
   relay: string;
-  topic: string;
   publicKey: string;
 }
 
@@ -40,12 +39,12 @@ export interface ConnectionMetadata {
   env: string;
 }
 
-export abstract class IConnection implements IProtocol {
+export abstract class IConnection extends IProtocol {
   public abstract proposed: ISubscription<ConnectionProposed>;
   public abstract created: ISubscription<ConnectionCreated>;
 
   constructor(public client: IClient) {
-    // empty
+    super(client);
   }
 
   public abstract propose(opts?: ConnectionProposeOptions): Promise<string>;
@@ -56,7 +55,9 @@ export abstract class IConnection implements IProtocol {
 
   public abstract delete(opts: ConnectionDeleteOptions): Promise<void>;
 
-  public abstract onResponse(payload: any): Promise<void>;
+  // ---------- Protected ----------------------------------------------- //
 
-  public abstract onMessage(payload: any): Promise<void>;
+  protected abstract onResponse(topic: string, message: string): Promise<void>;
+
+  protected abstract onMessage(topic: string, message: string): Promise<void>;
 }

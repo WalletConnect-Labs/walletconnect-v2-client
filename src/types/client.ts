@@ -18,6 +18,10 @@ export abstract class ISubscription<T> {
   public abstract on(event: string, listener: any): void;
   public abstract once(event: string, listener: any): void;
   public abstract off(event: string, listener: any): void;
+
+  // ---------- Protected ----------------------------------------------- //
+
+  protected abstract onMessage(topic: string, message: string): Promise<any>;
 }
 
 export abstract class IProtocol {
@@ -39,10 +43,12 @@ export abstract class IProtocol {
   // called by either when disconnecting
   public abstract delete(opts: any): Promise<any>;
 
+  // ---------- Protected ----------------------------------------------- //
+
   // callback for proposed subscriptions
-  public abstract onResponse(payload: any): Promise<any>;
+  protected abstract onResponse(topic: string, message: string): Promise<any>;
   // callback for created subscriptions
-  public abstract onMessage(payload: any): Promise<any>;
+  protected abstract onMessage(topic: string, message: string): Promise<any>;
 }
 
 export interface ClientOptions {

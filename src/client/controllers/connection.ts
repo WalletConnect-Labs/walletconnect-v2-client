@@ -22,20 +22,22 @@ import {
   generateTopic,
   formatJsonRpcError,
   formatJsonRpcResult,
+  safeJsonParse,
 } from "../../utils";
 import { Subscription } from "./subscription";
 
-export class Connection implements IConnection {
+export class Connection extends IConnection {
   public proposed: Subscription<ConnectionProposed>;
   public created: Subscription<ConnectionCreated>;
 
   private events = new EventEmitter();
 
   constructor(public client: IClient) {
+    super(client);
     this.proposed = new Subscription<ConnectionProposed>(client, "proposed");
-    this.proposed.on("payload", (payload: any) => this.onResponse(payload));
+    this.proposed.on("message", ({ topic, message }) => this.onResponse(topic, message));
     this.created = new Subscription<ConnectionCreated>(client, "created");
-    this.created.on("payload", (payload: any) => this.onMessage(payload));
+    this.created.on("message", ({ topic, message }) => this.onMessage(topic, message));
   }
 
   public async propose(opts?: ConnectionProposeOptions): Promise<string> {
@@ -49,23 +51,23 @@ export class Connection implements IConnection {
 
     const proposal: ConnectionProposal = {
       relay: setup.relay,
-      topic: setup.topic,
       publicKey: setup.keyPair.publicKey,
     };
     return formatUri(this.client.protocol, this.client.version, setup.topic, proposal);
   }
 
   public async respond(opts: ConnectionRespondOptions) {
-    const proposal = parseUri(opts.uri);
-    assertType(proposal, "publicKey", "string");
+    const uriParams = parseUri(opts.uri) as ConnectionProposal & { topic: string };
+    assertType(uriParams, "publicKey", "string");
     const keyPair = generateKeyPair();
-    const relay = proposal.relay;
+    const topic = uriParams.topic;
+    const relay = uriParams.relay;
     const connection = await this.create({
       relay,
       privateKey: keyPair.privateKey,
-      publicKey: proposal.publicKey,
+      publicKey: uriParams.publicKey,
     });
-    this.publishResponse(proposal, connection);
+    this.publishResponse(topic, uriParams, connection);
     return connection.topic;
   }
 
@@ -84,8 +86,10 @@ export class Connection implements IConnection {
     // TODO: implement delete
   }
 
-  public async onResponse(request: any): Promise<void> {
-    const topic = request.topic;
+  // ---------- Protected ----------------------------------------------- //
+
+  protected async onResponse(topic: string, message: string): Promise<void> {
+    const request = safeJsonParse(message);
     const proposed = await this.proposed.get(topic);
     try {
       assertType(request, "publicKey", "string");
@@ -101,20 +105,23 @@ export class Connection implements IConnection {
       this.client.relay.publish(topic, JSON.stringify(response), proposed.relay);
     }
     await this.proposed.del(topic);
-    return topic;
   }
 
-  public async onMessage(message: any): Promise<void> {
-    // TODO: implement onMessage
+  protected async onMessage(topic: string, message: string): Promise<void> {
+    this.events.emit("message", { topic, message });
   }
 
   // ---------- Private ----------------------------------------------- //
 
-  private async publishResponse(proposal: ConnectionProposal, connection: ConnectionCreated) {
+  private async publishResponse(
+    topic: string,
+    proposal: ConnectionProposal,
+    connection: ConnectionCreated,
+  ) {
     const request = formatJsonRpcRequest("wc_respondConnection", { publicKey: proposal.publicKey });
-    this.client.relay.publish(proposal.topic, JSON.stringify(request), proposal.relay);
+    this.client.relay.publish(topic, JSON.stringify(request), proposal.relay);
     this.client.relay.subscribe(
-      proposal.topic,
+      topic,
       (response: any) => {
         if (response.error) {
           this.created.del(connection.topic);
