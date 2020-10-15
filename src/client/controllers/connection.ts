@@ -10,6 +10,7 @@ import {
   ConnectionRespondOptions,
   ConnectionCreateOptions,
   ConnectionDeleteOptions,
+  ConnectionResponded,
 } from "../../types";
 import {
   generateKeyPair,
@@ -28,14 +29,17 @@ import { Subscription } from "./subscription";
 
 export class Connection extends IConnection {
   public proposed: Subscription<ConnectionProposed>;
+  public responded: Subscription<ConnectionResponded>;
   public created: Subscription<ConnectionCreated>;
 
-  private events = new EventEmitter();
+  protected events = new EventEmitter();
 
   constructor(public client: IClient) {
     super(client);
     this.proposed = new Subscription<ConnectionProposed>(client, "proposed");
     this.proposed.on("message", ({ topic, message }) => this.onResponse(topic, message));
+    this.responded = new Subscription<ConnectionResponded>(client, "responded");
+    this.responded.on("message", ({ topic, message }) => this.onAcknowledge(topic, message));
     this.created = new Subscription<ConnectionCreated>(client, "created");
     this.created.on("message", ({ topic, message }) => this.onMessage(topic, message));
   }
@@ -51,23 +55,32 @@ export class Connection extends IConnection {
 
     const proposal: ConnectionProposal = {
       relay: setup.relay,
+      topic: setup.topic,
       publicKey: setup.keyPair.publicKey,
     };
     return formatUri(this.client.protocol, this.client.version, setup.topic, proposal);
   }
 
-  public async respond(opts: ConnectionRespondOptions) {
-    const uriParams = parseUri(opts.uri) as ConnectionProposal & { topic: string };
-    assertType(uriParams, "publicKey", "string");
+  public async respond(opts: ConnectionRespondOptions): Promise<string> {
+    const proposal = parseUri(opts.uri) as ConnectionProposal;
+    assertType(proposal, "publicKey", "string");
     const keyPair = generateKeyPair();
-    const topic = uriParams.topic;
-    const relay = uriParams.relay;
+    const topic = proposal.topic;
+    const relay = proposal.relay;
     const connection = await this.create({
       relay,
       privateKey: keyPair.privateKey,
-      publicKey: uriParams.publicKey,
+      publicKey: proposal.publicKey,
     });
-    this.publishResponse(topic, uriParams, connection);
+    const request = formatJsonRpcRequest("wc_respondConnection", {
+      publicKey: proposal.publicKey,
+    });
+    this.client.relay.publish(topic, JSON.stringify(request), proposal.relay);
+    const responded: ConnectionResponded = {
+      ...proposal,
+      connection,
+    };
+    this.responded.set(responded.topic, responded);
     return connection.topic;
   }
 
@@ -84,6 +97,18 @@ export class Connection extends IConnection {
 
   public async delete(opts: ConnectionDeleteOptions) {
     // TODO: implement delete
+  }
+
+  public on(event: string, listener: any): void {
+    this.events.on(event, listener);
+  }
+
+  public once(event: string, listener: any): void {
+    this.events.once(event, listener);
+  }
+
+  public off(event: string, listener: any): void {
+    this.events.off(event, listener);
   }
 
   // ---------- Protected ----------------------------------------------- //
@@ -107,27 +132,16 @@ export class Connection extends IConnection {
     await this.proposed.del(topic);
   }
 
-  protected async onMessage(topic: string, message: string): Promise<void> {
-    this.events.emit("message", { topic, message });
+  protected async onAcknowledge(topic: string, message: string): Promise<void> {
+    const response = safeJsonParse(message);
+    const responded = await this.responded.get(topic);
+    if (response.error) {
+      this.created.del(responded.connection.topic);
+    }
+    this.responded.del(topic);
   }
 
-  // ---------- Private ----------------------------------------------- //
-
-  private async publishResponse(
-    topic: string,
-    proposal: ConnectionProposal,
-    connection: ConnectionCreated,
-  ) {
-    const request = formatJsonRpcRequest("wc_respondConnection", { publicKey: proposal.publicKey });
-    this.client.relay.publish(topic, JSON.stringify(request), proposal.relay);
-    this.client.relay.subscribe(
-      topic,
-      (response: any) => {
-        if (response.error) {
-          this.created.del(connection.topic);
-        }
-      },
-      proposal.relay,
-    );
+  protected async onMessage(topic: string, message: string): Promise<void> {
+    this.events.emit("message", { topic, message });
   }
 }

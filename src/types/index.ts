@@ -1,3 +1,4 @@
+export * from "./events";
 export * from "./client";
 export * from "./connection";
 export * from "./crypto";

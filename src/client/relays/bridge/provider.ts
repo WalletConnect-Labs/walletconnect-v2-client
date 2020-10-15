@@ -1,18 +1,19 @@
 import { EventEmitter } from "events";
 
-import { JsonRpcRequest, JsonRpcProvider } from "../../../types";
+import { JsonRpcRequest, IJsonRpcProvider } from "../../../types";
 
 const WS =
   // @ts-ignore
   typeof global.WebSocket !== "undefined" ? global.WebSocket : require("ws");
 
-export class BridgeProvider implements JsonRpcProvider {
-  private events = new EventEmitter();
+export class BridgeProvider extends IJsonRpcProvider {
+  protected events = new EventEmitter();
 
   public rpcUrl: string;
   public socket: WebSocket | undefined;
 
   constructor(rpcUrl?: string) {
+    super();
     this.rpcUrl = rpcUrl || "wss://bridge.walletconnect.org";
   }
 

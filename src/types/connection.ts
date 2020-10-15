@@ -1,3 +1,4 @@
+import { SpawnSyncOptionsWithStringEncoding } from "child_process";
 import { IClient, IProtocol, ISubscription } from "./client";
 import { KeyPair } from "./crypto";
 
@@ -25,7 +26,12 @@ export interface ConnectionProposed {
 
 export interface ConnectionProposal {
   relay: string;
+  topic: string;
   publicKey: string;
+}
+
+export interface ConnectionResponded extends ConnectionProposal {
+  connection: ConnectionCreated;
 }
 
 export interface ConnectionCreated {
@@ -41,6 +47,7 @@ export interface ConnectionMetadata {
 
 export abstract class IConnection extends IProtocol {
   public abstract proposed: ISubscription<ConnectionProposed>;
+  public abstract responded: ISubscription<ConnectionResponded>;
   public abstract created: ISubscription<ConnectionCreated>;
 
   constructor(public client: IClient) {
@@ -58,6 +65,8 @@ export abstract class IConnection extends IProtocol {
   // ---------- Protected ----------------------------------------------- //
 
   protected abstract onResponse(topic: string, message: string): Promise<void>;
+
+  protected abstract onAcknowledge(topic: string, message: string): Promise<void>;
 
   protected abstract onMessage(topic: string, message: string): Promise<void>;
 }

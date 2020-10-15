@@ -5,7 +5,7 @@ import { IClient, ISubscription } from "../../types";
 export class Subscription<T = any> extends ISubscription<T> {
   public subscriptions = new Map<string, T>();
 
-  private events = new EventEmitter();
+  protected events = new EventEmitter();
 
   constructor(public client: IClient, public name = "") {
     super(client, name);
@@ -42,9 +42,11 @@ export class Subscription<T = any> extends ISubscription<T> {
   public on(event: string, listener: any): void {
     this.events.on(event, listener);
   }
+
   public once(event: string, listener: any): void {
     this.events.once(event, listener);
   }
+
   public off(event: string, listener: any): void {
     this.events.off(event, listener);
   }

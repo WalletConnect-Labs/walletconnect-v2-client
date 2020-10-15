@@ -1,15 +1,16 @@
 import { EventEmitter } from "events";
 
-import { JsonRpcProvider, IRelayClient } from "../../../types";
+import { IJsonRpcProvider, IRelayClient } from "../../../types";
 import { BridgeProvider } from "./provider";
-import { payloadId } from "../../../utils";
+import { formatJsonRpcRequest, payloadId } from "../../../utils";
 
-export class BridgeClient implements IRelayClient {
-  private events = new EventEmitter();
+export class BridgeClient extends IRelayClient {
+  protected events = new EventEmitter();
 
-  public provider: JsonRpcProvider;
+  public provider: IJsonRpcProvider;
 
-  constructor(provider?: JsonRpcProvider) {
+  constructor(provider?: IJsonRpcProvider) {
+    super();
     this.provider = provider || new BridgeProvider();
     this.provider.on("message", this.onMessage);
   }
@@ -19,51 +20,52 @@ export class BridgeClient implements IRelayClient {
   }
 
   public publish(topic: string, message: string): void {
-    this.provider.request({
-      id: payloadId(),
-      jsonrpc: "2.0",
-      method: "bridge_publish",
-      params: [
-        {
-          topic,
-          message,
-          ttl: 86400,
-        },
-      ],
-    });
+    this.provider.request(
+      formatJsonRpcRequest("bridge_publish", {
+        topic,
+        message,
+        ttl: 86400,
+      }),
+    );
   }
 
-  public subscribe = (topic: string, listener: (...args: any[]) => void): any => {
+  public subscribe = (topic: string, listener: (message: string) => void): any => {
     return this.provider
-      .request({
-        id: payloadId(),
-        jsonrpc: "2.0",
-        method: "bridge_subscribe",
-        params: {
+      .request(
+        formatJsonRpcRequest("bridge_subscribe", {
           topic,
           ttl: 86400,
-        },
-      })
+        }),
+      )
       .then(id => {
         this.events.on(id, listener);
       });
   };
 
-  public unsubscribe = (topic: string, listener: (...args: any[]) => void): any => {
+  public unsubscribe = (topic: string, listener: (message: string) => void): any => {
     return this.provider
-      .request({
-        id: payloadId(),
-        jsonrpc: "2.0",
-        method: "bridge_unsubscribe",
-        params: {
+      .request(
+        formatJsonRpcRequest("bridge_unsubscribe", {
           topic,
           ttl: 86400,
-        },
-      })
+        }),
+      )
       .then(id => {
         this.events.off(id, listener);
       });
   };
+
+  public on(event: string, listener: any): void {
+    this.events.on(event, listener);
+  }
+
+  public once(event: string, listener: any): void {
+    this.events.once(event, listener);
+  }
+
+  public off(event: string, listener: any): void {
+    this.events.off(event, listener);
+  }
 
   // ---------- Private ----------------------------------------------- //
 

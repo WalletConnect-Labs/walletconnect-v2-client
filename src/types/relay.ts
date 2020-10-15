@@ -1,42 +1,47 @@
-import { JsonRpcProvider } from "./jsonrpc";
+import { IEvents } from "./events";
+import { IJsonRpcProvider } from "./jsonrpc";
 
-export abstract class IRelayClient {
-  public abstract provider: JsonRpcProvider;
+export abstract class IRelayClient extends IEvents {
+  public abstract provider: IJsonRpcProvider;
 
   constructor(relayOptions?: RelayClientOptions) {
-    // empty
+    super();
   }
 
   public abstract init(): Promise<any>;
 
   public abstract publish(topic: string, message: string): void;
 
-  public abstract subscribe(topic: string, listener: (...args: any[]) => void): any;
+  public abstract subscribe(topic: string, listener: (message: string) => void): any;
 
-  public abstract unsubscribe(topic: string, listener: (...args: any[]) => void): any;
+  public abstract unsubscribe(topic: string, listener: (message: string) => void): any;
 }
 
-export abstract class IRelay {
+export abstract class IRelay extends IEvents {
   public abstract default: string;
   public abstract clients: RelayClients;
 
   constructor(opts: RelayUserOptions = {}) {
-    // empty
+    super();
   }
 
   public abstract publish(topic: string, message: string, relay?: string): any;
 
-  public abstract subscribe(topic: string, listener: (...args: any[]) => void, relay?: string): any;
+  public abstract subscribe(
+    topic: string,
+    listener: (message: string) => void,
+    relay?: string,
+  ): any;
 
   public abstract unsubscribe(
     topic: string,
-    listener: (...args: any[]) => void,
+    listener: (message: string) => void,
     relay?: string,
   ): any;
 }
 
 export interface RelayClientOptions {
-  provider?: JsonRpcProvider;
+  provider?: IJsonRpcProvider;
   providerOpts?: any;
 }
 

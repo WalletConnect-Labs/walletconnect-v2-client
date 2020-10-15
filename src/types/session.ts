@@ -23,7 +23,12 @@ export interface SessionProposed {
 
 export interface SessionProposal {
   relay: string;
+  topic: string;
   publicKey: string;
+}
+
+export interface SessionResponded extends SessionProposal {
+  connection: SessionCreated;
 }
 
 export interface SessionCreated {
@@ -41,6 +46,7 @@ export interface SessionMetadata {
 
 export abstract class ISession extends IProtocol {
   public abstract proposed: ISubscription<SessionProposed>;
+  public abstract responded: ISubscription<SessionResponded>;
   public abstract created: ISubscription<SessionCreated>;
 
   constructor(public client: IClient) {
@@ -58,6 +64,8 @@ export abstract class ISession extends IProtocol {
   // ---------- Protected ----------------------------------------------- //
 
   protected abstract onResponse(topic: string, message: string): Promise<void>;
+
+  protected abstract onAcknowledge(topic: string, message: string): Promise<void>;
 
   protected abstract onMessage(topic: string, message: string): Promise<void>;
 }
