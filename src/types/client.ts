@@ -9,6 +9,20 @@ export interface ClientOptions {
   relay?: RelayUserOptions;
 }
 
+export interface ClientConnectParams {
+  app: {
+    id: string;
+    meta: any;
+  };
+}
+
+export interface ClientDisconnectParams {
+  app: {
+    id: string;
+    meta: any;
+  };
+}
+
 export abstract class IClient extends IEvents {
   public readonly protocol = "wc";
   public readonly version = 2;
@@ -23,5 +37,6 @@ export abstract class IClient extends IEvents {
     super();
   }
 
-  public abstract connect();
+  public abstract connect(params: ClientConnectParams);
+  public abstract disconnect(params: ClientDisconnectParams);
 }

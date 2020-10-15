@@ -1,7 +1,13 @@
 import { EventEmitter } from "events";
 
 import { Store, Connection, Session, Relay } from "./controllers";
-import { IClient, ClientOptions, RelayUserOptions } from "../types";
+import {
+  IClient,
+  ClientOptions,
+  RelayUserOptions,
+  ClientConnectParams,
+  ClientDisconnectParams,
+} from "../types";
 
 export class Client extends IClient {
   public readonly protocol = "wc";
@@ -37,7 +43,55 @@ export class Client extends IClient {
     this.events.off(event, listener);
   }
 
-  public async connect() {
+  public async connect(params: ClientConnectParams) {
     // TODO: implement connect
+    // the client should be able to render the UI internally by defining a standard user flow events
+    //
+    // required context params:
+    //    - environment identifier (aka connection metadata)
+    //    - persisted connections
+    //    - persisted sessions
+    //
+    // required user params:
+    //    - application identifier (aka session metadata)
+    //
+    // first: verify if there are any connections created
+    // if no connection is present,
+    //    - prompt user to create one
+    // if a connection is present
+    //    - prompt user to select existing or create a new one
+    // once a connection is established
+    //    - trigger connection_approved
+    //
+    // second: verify if session matches application
+    // if no sessions exists matching application
+    //    - prompt the user to approve session on mobile
+    // if a session exists matching application
+    //    - proceed
+    // once a session is established
+    //    - trigger session_approved
+    //
+    // finally: resolve promise
+  }
+
+  public async disconnect(params: ClientDisconnectParams) {
+    // TODO: implement disconnect
+    // the client should be able to create the UI internally by defining a standard user flow
+    //
+    // required context params:
+    //    - environment identifier (aka connection metadata)
+    //    - persisted connections
+    //    - persisted sessions
+    //
+    // required user params:
+    //    - application identifier (aka session metadata)
+    //
+    // first: verify if connection and/or matching session exists
+    // if no connection/session present
+    //    - throw error
+    // if a connection/session present
+    //    - this.session.delete()
+    //
+    // finally: resolve promise
   }
 }

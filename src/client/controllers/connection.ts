@@ -14,8 +14,6 @@ import {
 } from "../../types";
 import {
   generateKeyPair,
-  parseUri,
-  formatUri,
   deriveSharedKey,
   sha256,
   formatJsonRpcRequest,
