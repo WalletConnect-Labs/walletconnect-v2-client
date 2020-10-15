@@ -44,7 +44,9 @@ export abstract class IConnection implements IProtocol {
   public abstract proposed: ISubscription<ConnectionProposed>;
   public abstract created: ISubscription<ConnectionCreated>;
 
-  constructor(public client: IClient) {}
+  constructor(public client: IClient) {
+    // empty
+  }
 
   public abstract propose(opts?: ConnectionProposeOptions): Promise<string>;
 

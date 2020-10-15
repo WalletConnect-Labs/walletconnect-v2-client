@@ -6,7 +6,9 @@ import { IStore } from "./store";
 export abstract class ISubscription<T> {
   public abstract subscriptions = new Map<string, T>();
 
-  constructor(public client: IClient, public name = "") {}
+  constructor(public client: IClient, public name = "") {
+    // empty
+  }
 
   public abstract set(topic: string, subscription: T): Promise<void>;
 
@@ -24,7 +26,9 @@ export abstract class IProtocol {
   // created subscriptions
   public abstract created: ISubscription<any>;
 
-  constructor(public client: IClient) {}
+  constructor(public client: IClient) {
+    // empty
+  }
 
   // called by the initiator
   public abstract propose(opts: any): Promise<any>;
@@ -56,7 +60,9 @@ export abstract class IClient {
   public abstract store: IStore;
   public abstract relay: IRelay;
 
-  constructor(opts: ClientOptions) {}
+  constructor(opts: ClientOptions) {
+    // empty
+  }
 
   public abstract connect();
 }

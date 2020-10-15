@@ -80,7 +80,9 @@ export class Connection implements IConnection {
     return connection;
   }
 
-  public async delete(opts: ConnectionDeleteOptions) {}
+  public async delete(opts: ConnectionDeleteOptions) {
+    // TODO: implement delete
+  }
 
   public async onResponse(request: any): Promise<void> {
     const topic = request.topic;
@@ -102,7 +104,9 @@ export class Connection implements IConnection {
     return topic;
   }
 
-  public async onMessage(message: any): Promise<void> {}
+  public async onMessage(message: any): Promise<void> {
+    // TODO: implement onMessage
+  }
 
   // ---------- Private ----------------------------------------------- //
 

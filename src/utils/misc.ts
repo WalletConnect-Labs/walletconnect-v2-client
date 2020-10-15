@@ -1,7 +1,6 @@
 import * as safeJsonUtils from "safe-json-utils";
-import * as rpcPayloadId from "rpc-payload-id";
+import * as jsonRpcUtils from "rpc-json-utils";
 
-import { JsonRpcRequest } from "../types";
 import { sha256 } from "./crypto";
 
 // -- JSON -------------------------------------------------- //
@@ -12,7 +11,7 @@ export const safeJsonStringify = safeJsonUtils.safeJsonStringify;
 
 // -- id -------------------------------------------------- //
 
-export const payloadId = rpcPayloadId.payloadId;
+export const payloadId = jsonRpcUtils.payloadId;
 
 export function uuid(): string {
   const result: string = ((a?: any, b?: any) => {

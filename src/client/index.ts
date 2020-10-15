@@ -1,8 +1,7 @@
 import { EventEmitter } from "events";
 
-import { Store } from "./controllers";
+import { Store, Connection, Session, Relay } from "./controllers";
 import { IClient, ClientOptions, RelayUserOptions } from "../types";
-import { Connection, Session, Relay } from "./controllers";
 
 export class Client implements IClient {
   public readonly protocol = "wc";
@@ -21,5 +20,7 @@ export class Client implements IClient {
     this.relay = new Relay();
   }
 
-  public async connect() {}
+  public async connect() {
+    // TODO: implement connect
+  }
 }

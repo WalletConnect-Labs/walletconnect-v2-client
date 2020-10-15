@@ -14,9 +14,11 @@ export class BridgeClient implements IRelayClient {
     this.provider.on("message", this.onMessage);
   }
 
-  public init() {}
+  public async init(): Promise<any> {
+    // TODO: implement init
+  }
 
-  public publish(topic: string, message: string) {
+  public publish(topic: string, message: string): void {
     this.provider.request({
       id: payloadId(),
       jsonrpc: "2.0",

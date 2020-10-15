@@ -7,7 +7,9 @@ export class Subscription<T = any> implements ISubscription<T> {
 
   private events = new EventEmitter();
 
-  constructor(public client: IClient, public name = "") {}
+  constructor(public client: IClient, public name = "") {
+    // empty
+  }
 
   public async set(topic: string, subscription: T): Promise<void> {
     this.subscriptions.set(topic, subscription);

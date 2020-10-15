@@ -15,15 +15,27 @@ export class Session implements ISession {
     this.created = new Subscription<SessionCreated>(client, "created");
     this.created.on("payload", (payload: any) => this.onMessage(payload));
   }
-  public async propose(): Promise<void> {}
+  public async propose(): Promise<void> {
+    // TODO: implement propose
+  }
 
-  public async respond(): Promise<void> {}
+  public async respond(): Promise<void> {
+    // TODO: implement respond
+  }
 
-  public async create(): Promise<void> {}
+  public async create(): Promise<void> {
+    // TODO: implemen createt
+  }
 
-  public async delete(): Promise<void> {}
+  public async delete(): Promise<void> {
+    // TODO: implemen deletet
+  }
 
-  public async onResponse(request: any): Promise<void> {}
+  public async onResponse(request: any): Promise<void> {
+    // TODO: implement onResponse
+  }
 
-  public async onMessage(message: any): Promise<void> {}
+  public async onMessage(message: any): Promise<void> {
+    // TODO: implement onMessage
+  }
 }

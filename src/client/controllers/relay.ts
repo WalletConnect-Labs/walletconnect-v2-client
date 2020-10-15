@@ -1,24 +1,7 @@
 import { Relays } from "../relays";
-import { RelayUserOptions, RelayClients } from "../../types";
+import { RelayUserOptions, RelayClients, IRelay } from "../../types";
 
-export abstract class IRelay {
-  public abstract default: string;
-  public abstract clients: RelayClients;
-
-  constructor(opts: RelayUserOptions = {}) {}
-
-  public abstract publish(topic: string, message: string, relay?: string): any;
-
-  public abstract subscribe(topic: string, listener: (...args: any[]) => void, relay?: string): any;
-
-  public abstract unsubscribe(
-    topic: string,
-    listener: (...args: any[]) => void,
-    relay?: string,
-  ): any;
-}
-
-export class Relay {
+export class Relay implements IRelay {
   public default = "bridge";
   public clients: RelayClients = {};
 

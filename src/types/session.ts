@@ -1,15 +1,25 @@
 import { IClient, IProtocol, ISubscription } from "./client";
 
-export interface SessionProposeOptions {}
-export interface SessionRespondOptions {}
-export interface SessionCreateOptions {}
-export interface SessionDeleteOptions {}
+export interface SessionProposeOptions {
+  topic: string;
+}
+export interface SessionRespondOptions {
+  topic: string;
+}
+export interface SessionCreateOptions {
+  topic: string;
+}
+export interface SessionDeleteOptions {
+  topic: string;
+}
 
 export abstract class ISession implements IProtocol {
   public abstract proposed: ISubscription<SessionProposed>;
   public abstract created: ISubscription<SessionCreated>;
 
-  constructor(public client: IClient) {}
+  constructor(public client: IClient) {
+    // empty
+  }
 
   public abstract propose(opts?: SessionProposeOptions): Promise<void>;
 
@@ -24,10 +34,21 @@ export abstract class ISession implements IProtocol {
   public abstract onMessage(payload: any): Promise<void>;
 }
 
-export interface SessionProposed {}
+export interface SessionProposed {
+  topic: string;
+}
 
-export interface SessionProposal {}
+export interface SessionProposal {
+  topic: string;
+}
 
-export interface SessionCreated {}
+export interface SessionCreated {
+  topic: string;
+}
 
-export interface SessionMetadata {}
+export interface SessionMetadata {
+  name: string;
+  description: string;
+  url: string;
+  icons: string[];
+}
