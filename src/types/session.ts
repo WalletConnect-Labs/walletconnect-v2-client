@@ -2,6 +2,7 @@ import { IClient } from "./client";
 import { ISequence } from "./sequence";
 import { ISubscription } from "./subscription";
 import { KeyPair } from "./crypto";
+import { MessageEvent } from "./events";
 
 export interface SessionProposeParams {
   relay: string;
@@ -17,6 +18,7 @@ export interface SessionCreateParams {
 }
 export interface SessionDeleteParams {
   topic: string;
+  reason: string;
 }
 
 export interface SessionProposed {
@@ -67,9 +69,9 @@ export abstract class ISession extends ISequence {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected abstract onResponse(topic: string, message: string): Promise<void>;
+  protected abstract onResponse(messageEvent: MessageEvent): Promise<void>;
 
-  protected abstract onAcknowledge(topic: string, message: string): Promise<void>;
+  protected abstract onAcknowledge(messageEvent: MessageEvent): Promise<void>;
 
-  protected abstract onMessage(topic: string, message: string): Promise<void>;
+  protected abstract onMessage(messageEvent: MessageEvent): Promise<void>;
 }

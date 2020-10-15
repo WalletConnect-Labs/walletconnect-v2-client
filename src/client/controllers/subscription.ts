@@ -1,14 +1,15 @@
 import { EventEmitter } from "events";
 
-import { IClient, ISubscription } from "../../types";
+import { IClient, ISubscription, MessageEvent, SubscriptionContext } from "../../types";
 
 export class Subscription<T = any> extends ISubscription<T> {
   public subscriptions = new Map<string, T>();
 
   protected events = new EventEmitter();
 
-  constructor(public client: IClient, public name = "") {
-    super(client, name);
+  constructor(public client: IClient, public context: SubscriptionContext) {
+    super(client, context);
+    this.registerEventListeners();
   }
 
   public async set(topic: string, subscription: T): Promise<void> {
@@ -16,7 +17,7 @@ export class Subscription<T = any> extends ISubscription<T> {
     this.events.emit("created", subscription);
     this.client.relay.subscribe(
       topic,
-      (message: string) => this.onMessage(topic, message),
+      (message: string) => this.onMessage({ topic, message }),
       (subscription as any).relay,
     );
   }
@@ -24,7 +25,9 @@ export class Subscription<T = any> extends ISubscription<T> {
   public async get(topic: string): Promise<T> {
     const subscription = this.subscriptions.get(topic);
     if (!subscription) {
-      throw new Error(`No matching ${this.name} subscriptions with topic: ${topic}`);
+      throw new Error(
+        `No matching ${this.context.status} ${this.context.name} with topic: ${topic}`,
+      );
     }
     return subscription;
   }
@@ -33,7 +36,7 @@ export class Subscription<T = any> extends ISubscription<T> {
     const subscription = await this.get(topic);
     this.client.relay.unsubscribe(
       topic,
-      (message: string) => this.onMessage(topic, message),
+      (message: string) => this.onMessage({ topic, message }),
       (subscription as any).relay,
     );
     this.events.emit("deleted", subscription);
@@ -53,7 +56,18 @@ export class Subscription<T = any> extends ISubscription<T> {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected async onMessage(topic: string, message: string) {
-    this.events.emit("message", { topic, message });
+  protected async onMessage(messageEvent: MessageEvent) {
+    this.events.emit("message", messageEvent);
+  }
+
+  // ---------- Private ----------------------------------------------- //
+
+  private async persist() {
+    this.client.store.set(`${this.context.name}:${this.context.status}`, this.subscriptions);
+  }
+
+  private registerEventListeners(): void {
+    this.events.on("created", () => this.persist());
+    this.events.on("deleted", () => this.persist());
   }
 }

@@ -2,6 +2,7 @@ import { IClient } from "./client";
 import { ISequence } from "./sequence";
 import { ISubscription } from "./subscription";
 import { KeyPair } from "./crypto";
+import { MessageEvent } from "./events";
 
 export interface ConnectionProposeParams {
   relay: string;
@@ -18,6 +19,7 @@ export interface ConnectionCreateParams {
 }
 export interface ConnectionDeleteParams {
   topic: string;
+  reason: string;
 }
 
 export interface ConnectionProposed {
@@ -66,9 +68,9 @@ export abstract class IConnection extends ISequence {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected abstract onResponse(topic: string, message: string): Promise<void>;
+  protected abstract onResponse(messageEvent: MessageEvent): Promise<void>;
 
-  protected abstract onAcknowledge(topic: string, message: string): Promise<void>;
+  protected abstract onAcknowledge(messageEvent: MessageEvent): Promise<void>;
 
-  protected abstract onMessage(topic: string, message: string): Promise<void>;
+  protected abstract onMessage(messageEvent: MessageEvent): Promise<void>;
 }

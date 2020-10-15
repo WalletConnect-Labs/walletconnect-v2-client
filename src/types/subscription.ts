@@ -1,10 +1,15 @@
 import { IClient } from "./client";
-import { IEvents } from "./events";
+import { IEvents, MessageEvent } from "./events";
+
+export interface SubscriptionContext {
+  name: string;
+  status: string;
+}
 
 export abstract class ISubscription<T> extends IEvents {
   public abstract subscriptions = new Map<string, T>();
 
-  constructor(public client: IClient, public name = "") {
+  constructor(public client: IClient, public context: SubscriptionContext) {
     super();
   }
 
@@ -16,5 +21,5 @@ export abstract class ISubscription<T> extends IEvents {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected abstract onMessage(topic: string, message: string): Promise<any>;
+  protected abstract onMessage(messageEvent: MessageEvent): Promise<any>;
 }

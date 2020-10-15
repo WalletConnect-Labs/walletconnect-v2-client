@@ -11,6 +11,7 @@ import {
   ConnectionCreateParams,
   ConnectionDeleteParams,
   ConnectionResponded,
+  MessageEvent,
 } from "../../types";
 import {
   generateKeyPair,
@@ -32,14 +33,23 @@ export class Connection extends IConnection {
 
   protected events = new EventEmitter();
 
+  protected context = "connection";
+
   constructor(public client: IClient) {
     super(client);
-    this.proposed = new Subscription<ConnectionProposed>(client, "proposed");
-    this.proposed.on("message", ({ topic, message }) => this.onResponse(topic, message));
-    this.responded = new Subscription<ConnectionResponded>(client, "responded");
-    this.responded.on("message", ({ topic, message }) => this.onAcknowledge(topic, message));
-    this.created = new Subscription<ConnectionCreated>(client, "created");
-    this.created.on("message", ({ topic, message }) => this.onMessage(topic, message));
+    this.proposed = new Subscription<ConnectionProposed>(client, {
+      name: this.context,
+      status: "proposed",
+    });
+    this.responded = new Subscription<ConnectionResponded>(client, {
+      name: this.context,
+      status: "responded",
+    });
+    this.created = new Subscription<ConnectionCreated>(client, {
+      name: this.context,
+      status: "created",
+    });
+    this.registerEventListeners();
   }
 
   public async propose(params?: ConnectionProposeParams): Promise<ConnectionProposal> {
@@ -94,7 +104,10 @@ export class Connection extends IConnection {
   }
 
   public async delete(params: ConnectionDeleteParams): Promise<void> {
-    // TODO: implement delete
+    const connection = await this.created.get(params.topic);
+    const request = formatJsonRpcRequest("wc_deleteConnection", { reason: params.reason });
+    this.client.relay.publish(connection.topic, JSON.stringify(request), connection.relay);
+    this.created.del(params.topic);
   }
 
   public on(event: string, listener: any): void {
@@ -111,7 +124,8 @@ export class Connection extends IConnection {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected async onResponse(topic: string, message: string): Promise<void> {
+  protected async onResponse(messageEvent: MessageEvent): Promise<void> {
+    const { topic, message } = messageEvent;
     const request = safeJsonParse(message);
     const proposed = await this.proposed.get(topic);
     try {
@@ -130,7 +144,8 @@ export class Connection extends IConnection {
     await this.proposed.del(topic);
   }
 
-  protected async onAcknowledge(topic: string, message: string): Promise<void> {
+  protected async onAcknowledge(messageEvent: MessageEvent): Promise<void> {
+    const { topic, message } = messageEvent;
     const response = safeJsonParse(message);
     const responded = await this.responded.get(topic);
     if (response.error) {
@@ -139,7 +154,27 @@ export class Connection extends IConnection {
     this.responded.del(topic);
   }
 
-  protected async onMessage(topic: string, message: string): Promise<void> {
-    this.events.emit("message", { topic, message });
+  protected async onMessage(messageEvent: MessageEvent): Promise<void> {
+    this.events.emit("message", messageEvent);
+  }
+
+  // ---------- Private ----------------------------------------------- //
+
+  private registerEventListeners(): void {
+    this.proposed.on("message", (messageEvent: MessageEvent) => this.onResponse(messageEvent));
+    this.proposed.on("created", (connection: ConnectionProposed) =>
+      this.events.emit("connection_proposed", connection),
+    );
+    this.responded.on("message", (messageEvent: MessageEvent) => this.onAcknowledge(messageEvent));
+    this.responded.on("created", (connection: ConnectionResponded) =>
+      this.events.emit("connection_responded", connection),
+    );
+    this.created.on("message", (messageEvent: MessageEvent) => this.onMessage(messageEvent));
+    this.created.on("created", (connection: ConnectionCreated) =>
+      this.events.emit("connection_created", connection),
+    );
+    this.created.on("deleted", (connection: ConnectionCreated) =>
+      this.events.emit("connection_deleted", connection),
+    );
   }
 }

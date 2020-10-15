@@ -1,5 +1,5 @@
 import { IClient } from "./client";
-import { IEvents } from "./events";
+import { IEvents, MessageEvent } from "./events";
 import { ISubscription } from "./subscription";
 
 export abstract class ISequence extends IEvents {
@@ -9,6 +9,8 @@ export abstract class ISequence extends IEvents {
   public abstract responded: ISubscription<any>;
   // created subscriptions
   public abstract created: ISubscription<any>;
+
+  protected abstract name: string;
 
   constructor(public client: IClient) {
     super();
@@ -31,9 +33,9 @@ export abstract class ISequence extends IEvents {
   // ---------- Protected ----------------------------------------------- //
 
   // callback for proposed subscriptions
-  protected abstract onResponse(topic: string, message: string): Promise<any>;
+  protected abstract onResponse(messageEvent: MessageEvent): Promise<any>;
   // callback for responded subscriptions
-  protected abstract onAcknowledge(topic: string, message: string): Promise<any>;
+  protected abstract onAcknowledge(messageEvent: MessageEvent): Promise<any>;
   // callback for created subscriptions
-  protected abstract onMessage(topic: string, message: string): Promise<any>;
+  protected abstract onMessage(messageEvent: MessageEvent): Promise<any>;
 }
