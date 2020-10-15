@@ -1,4 +1,6 @@
-import { IClient, IProtocol, ISubscription } from "./client";
+import { IClient } from "./client";
+import { ISequence } from "./sequence";
+import { ISubscription } from "./subscription";
 import { KeyPair } from "./crypto";
 
 export interface SessionProposeParams {
@@ -46,7 +48,7 @@ export interface SessionMetadata {
   icons: string[];
 }
 
-export abstract class ISession extends IProtocol {
+export abstract class ISession extends ISequence {
   public abstract proposed: ISubscription<SessionProposed>;
   public abstract responded: ISubscription<SessionResponded>;
   public abstract created: ISubscription<SessionCreated>;

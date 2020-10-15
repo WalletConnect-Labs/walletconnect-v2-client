@@ -10,16 +10,19 @@ export class Client extends IClient {
   protected events = new EventEmitter();
 
   public connection: Connection;
-  public relay: Relay;
   public session: Session;
+
+  public relay: Relay;
   public store: Store;
 
   constructor(opts?: ClientOptions) {
     super(opts);
+
     this.connection = new Connection(this);
     this.session = new Session(this);
+
     this.store = opts?.store || new Store();
-    this.relay = new Relay();
+    this.relay = new Relay(opts?.relay);
   }
 
   public on(event: string, listener: any): void {

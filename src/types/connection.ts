@@ -1,4 +1,6 @@
-import { IClient, IProtocol, ISubscription } from "./client";
+import { IClient } from "./client";
+import { ISequence } from "./sequence";
+import { ISubscription } from "./subscription";
 import { KeyPair } from "./crypto";
 
 export interface ConnectionProposeParams {
@@ -45,7 +47,7 @@ export interface ConnectionMetadata {
   env: string;
 }
 
-export abstract class IConnection extends IProtocol {
+export abstract class IConnection extends ISequence {
   public abstract proposed: ISubscription<ConnectionProposed>;
   public abstract responded: ISubscription<ConnectionResponded>;
   public abstract created: ISubscription<ConnectionCreated>;

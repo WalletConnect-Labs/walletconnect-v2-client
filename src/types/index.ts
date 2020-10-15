@@ -4,5 +4,7 @@ export * from "./connection";
 export * from "./crypto";
 export * from "./jsonrpc";
 export * from "./relay";
+export * from "./sequence";
 export * from "./session";
 export * from "./store";
+export * from "./subscription";
