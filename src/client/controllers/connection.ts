@@ -11,7 +11,7 @@ import {
   ConnectionCreateParams,
   ConnectionDeleteParams,
   ConnectionResponded,
-  MessageEvent,
+  Message,
 } from "../../types";
 import {
   generateKeyPair,
@@ -124,7 +124,7 @@ export class Connection extends IConnection {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected async onResponse(messageEvent: MessageEvent): Promise<void> {
+  protected async onResponse(messageEvent: Message): Promise<void> {
     const { topic, message } = messageEvent;
     const request = safeJsonParse(message);
     const proposed = await this.proposed.get(topic);
@@ -144,7 +144,7 @@ export class Connection extends IConnection {
     await this.proposed.del(topic);
   }
 
-  protected async onAcknowledge(messageEvent: MessageEvent): Promise<void> {
+  protected async onAcknowledge(messageEvent: Message): Promise<void> {
     const { topic, message } = messageEvent;
     const response = safeJsonParse(message);
     const responded = await this.responded.get(topic);
@@ -154,22 +154,22 @@ export class Connection extends IConnection {
     this.responded.del(topic);
   }
 
-  protected async onMessage(messageEvent: MessageEvent): Promise<void> {
+  protected async onMessage(messageEvent: Message): Promise<void> {
     this.events.emit("message", messageEvent);
   }
 
   // ---------- Private ----------------------------------------------- //
 
   private registerEventListeners(): void {
-    this.proposed.on("message", (messageEvent: MessageEvent) => this.onResponse(messageEvent));
+    this.proposed.on("message", (messageEvent: Message) => this.onResponse(messageEvent));
     this.proposed.on("created", (connection: ConnectionProposed) =>
       this.events.emit("connection_proposed", connection),
     );
-    this.responded.on("message", (messageEvent: MessageEvent) => this.onAcknowledge(messageEvent));
+    this.responded.on("message", (messageEvent: Message) => this.onAcknowledge(messageEvent));
     this.responded.on("created", (connection: ConnectionResponded) =>
       this.events.emit("connection_responded", connection),
     );
-    this.created.on("message", (messageEvent: MessageEvent) => this.onMessage(messageEvent));
+    this.created.on("message", (messageEvent: Message) => this.onMessage(messageEvent));
     this.created.on("created", (connection: ConnectionCreated) =>
       this.events.emit("connection_created", connection),
     );

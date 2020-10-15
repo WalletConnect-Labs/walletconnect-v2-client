@@ -15,8 +15,12 @@ export class BridgeClient extends IRelayClient {
     this.provider.on("message", this.onMessage);
   }
 
-  public async init(): Promise<any> {
-    // TODO: implement init
+  public async connect(): Promise<any> {
+    await this.provider.connect();
+  }
+
+  public async disconnect(): Promise<void> {
+    await this.provider.disconnect();
   }
 
   public publish(topic: string, message: string): void {

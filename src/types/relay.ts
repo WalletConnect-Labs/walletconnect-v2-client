@@ -8,7 +8,9 @@ export abstract class IRelayClient extends IEvents {
     super();
   }
 
-  public abstract init(): Promise<any>;
+  public abstract connect(): Promise<any>;
+
+  public abstract disconnect(): Promise<void>;
 
   public abstract publish(topic: string, message: string): void;
 
@@ -24,6 +26,8 @@ export abstract class IRelay extends IEvents {
   constructor(opts: RelayUserOptions = {}) {
     super();
   }
+
+  public abstract init(opts?: RelayUserOptions): Promise<void>;
 
   public abstract publish(topic: string, message: string, relay?: string): any;
 

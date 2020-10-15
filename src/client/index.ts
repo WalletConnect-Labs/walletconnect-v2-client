@@ -21,6 +21,12 @@ export class Client extends IClient {
   public relay: Relay;
   public store: Store;
 
+  static async init(opts?: ClientOptions): Promise<Client> {
+    const client = new Client(opts);
+    await client.initialize();
+    return client;
+  }
+
   constructor(opts?: ClientOptions) {
     super(opts);
 
@@ -93,5 +99,12 @@ export class Client extends IClient {
     //    - this.session.delete()
     //
     // finally: resolve promise
+  }
+
+  // ---------- Private ----------------------------------------------- //
+
+  private async initialize(): Promise<any> {
+    await this.store.init();
+    await this.relay.init();
   }
 }

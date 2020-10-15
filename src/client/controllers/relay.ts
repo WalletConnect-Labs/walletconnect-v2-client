@@ -15,9 +15,14 @@ export class Relay extends IRelay {
       this.assertRelayOpts(opts);
     }
     this.default = opts.default || "bridge";
-    Object.keys(Relays).forEach(key => {
-      this.clients[key] = Relays[key](opts[key]);
+    Object.keys(Relays).forEach(name => {
+      const RelayClient = Relays[name];
+      this.clients[name] = new RelayClient(opts[name]);
     });
+  }
+
+  public async init(opts: RelayUserOptions = {}): Promise<void> {
+    await Promise.all(Object.keys(this.clients).map(name => this.clients[name].connect()));
   }
 
   public publish(topic: string, message: string, relay = this.default): any {

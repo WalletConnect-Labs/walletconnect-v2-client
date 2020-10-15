@@ -61,11 +61,6 @@ export class BridgeProvider extends IJsonRpcProvider {
 
   private onMessage(e: any) {
     const payload = JSON.parse(e.data);
-    if (payload.method === "bridge_subscription") {
-      const { subscription, data } = payload.params;
-      this.events.emit(subscription, data);
-    } else {
-      this.events.emit(`${payload.id}`, payload);
-    }
+    this.events.emit(`${payload.id}`, payload);
   }
 }

@@ -12,7 +12,7 @@ import {
   SessionRespondParams,
   SessionCreateParams,
   SessionDeleteParams,
-  MessageEvent,
+  Message,
 } from "../../types";
 import { formatJsonRpcRequest } from "../../utils";
 
@@ -78,30 +78,30 @@ export class Session extends ISession {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected async onResponse(messageEvent: MessageEvent): Promise<void> {
+  protected async onResponse(messageEvent: Message): Promise<void> {
     // TODO: implement onResponse
   }
 
-  protected async onAcknowledge(messageEvent: MessageEvent): Promise<void> {
+  protected async onAcknowledge(messageEvent: Message): Promise<void> {
     // TODO: implement onAcknowledge
   }
 
-  protected async onMessage(messageEvent: MessageEvent) {
+  protected async onMessage(messageEvent: Message) {
     this.events.emit("message", messageEvent);
   }
 
   // ---------- Private ----------------------------------------------- //
 
   private registerEventListeners(): void {
-    this.proposed.on("message", (messageEvent: MessageEvent) => this.onResponse(messageEvent));
+    this.proposed.on("message", (messageEvent: Message) => this.onResponse(messageEvent));
     this.proposed.on("created", (session: SessionProposed) =>
       this.events.emit("session_proposed", session),
     );
-    this.responded.on("message", (messageEvent: MessageEvent) => this.onAcknowledge(messageEvent));
+    this.responded.on("message", (messageEvent: Message) => this.onAcknowledge(messageEvent));
     this.responded.on("created", (session: SessionResponded) =>
       this.events.emit("session_responded", session),
     );
-    this.created.on("message", (messageEvent: MessageEvent) => this.onMessage(messageEvent));
+    this.created.on("message", (messageEvent: Message) => this.onMessage(messageEvent));
     this.created.on("created", (session: SessionCreated) =>
       this.events.emit("session_created", session),
     );

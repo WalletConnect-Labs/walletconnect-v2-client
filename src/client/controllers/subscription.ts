@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 
-import { IClient, ISubscription, MessageEvent, SubscriptionContext } from "../../types";
+import { IClient, ISubscription, Message, SubscriptionContext } from "../../types";
 
 export class Subscription<T = any> extends ISubscription<T> {
   public subscriptions = new Map<string, T>();
@@ -56,7 +56,7 @@ export class Subscription<T = any> extends ISubscription<T> {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected async onMessage(messageEvent: MessageEvent) {
+  protected async onMessage(messageEvent: Message) {
     this.events.emit("message", messageEvent);
   }
 

@@ -1,11 +1,11 @@
 import { EventEmitter } from "events";
 
-export interface MessageEvent {
+export interface Message {
   topic: string;
   message: string;
 }
 
-export type MessageListener = (messageEvent: MessageEvent) => void;
+export type MessageListener = (messageEvent: Message) => void;
 
 export abstract class IEvents {
   protected abstract events: EventEmitter;
