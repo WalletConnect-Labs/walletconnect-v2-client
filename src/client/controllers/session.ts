@@ -1,7 +1,18 @@
 import { EventEmitter } from "events";
 
 import { Subscription } from "./subscription";
-import { IClient, SessionProposed, SessionCreated, ISession, SessionResponded } from "../../types";
+import {
+  IClient,
+  ISession,
+  SessionProposal,
+  SessionProposed,
+  SessionResponded,
+  SessionCreated,
+  SessionProposeParams,
+  SessionRespondParams,
+  SessionCreateParams,
+  SessionDeleteParams,
+} from "../../types";
 
 export class Session extends ISession {
   public proposed: Subscription<SessionProposed>;
@@ -20,20 +31,23 @@ export class Session extends ISession {
     this.created.on("message", ({ topic, message }) => this.onMessage(topic, message));
   }
 
-  public async propose(): Promise<void> {
+  public async propose(params?: SessionProposeParams): Promise<SessionProposal> {
     // TODO: implement propose
+    return {} as SessionProposal;
   }
 
-  public async respond(): Promise<void> {
+  public async respond(params: SessionRespondParams): Promise<SessionResponded> {
     // TODO: implement respond
+    return {} as SessionResponded;
   }
 
-  public async create(): Promise<void> {
-    // TODO: implemen createt
+  public async create(params: SessionCreateParams): Promise<SessionCreated> {
+    // TODO: implement create
+    return {} as SessionCreated;
   }
 
-  public async delete(): Promise<void> {
-    // TODO: implemen deletet
+  public async delete(params: SessionDeleteParams): Promise<void> {
+    // TODO: implement delete
   }
 
   public on(event: string, listener: any): void {

@@ -1,17 +1,19 @@
 import { IClient, IProtocol, ISubscription } from "./client";
 import { KeyPair } from "./crypto";
 
-export interface SessionProposeOptions {
+export interface SessionProposeParams {
   relay: string;
 }
-export interface SessionRespondOptions {
+export interface SessionRespondParams {
+  approved: boolean;
+  proposal: SessionProposal;
+}
+export interface SessionCreateParams {
   relay: string;
+  privateKey: string;
   publicKey: string;
 }
-export interface SessionCreateOptions {
-  topic: string;
-}
-export interface SessionDeleteOptions {
+export interface SessionDeleteParams {
   topic: string;
 }
 
@@ -53,13 +55,13 @@ export abstract class ISession extends IProtocol {
     super(client);
   }
 
-  public abstract propose(opts?: SessionProposeOptions): Promise<void>;
+  public abstract propose(params?: SessionProposeParams): Promise<SessionProposal>;
 
-  public abstract respond(opts: SessionRespondOptions): Promise<void>;
+  public abstract respond(params: SessionRespondParams): Promise<SessionResponded>;
 
-  public abstract create(opts: SessionCreateOptions): Promise<void>;
+  public abstract create(params: SessionCreateParams): Promise<SessionCreated>;
 
-  public abstract delete(opts: SessionDeleteOptions): Promise<void>;
+  public abstract delete(params: SessionDeleteParams): Promise<void>;
 
   // ---------- Protected ----------------------------------------------- //
 

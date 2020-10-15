@@ -15,6 +15,6 @@ export abstract class IJsonRpcProvider extends IEvents {
   }
 
   public abstract request(payload: JsonRpcRequest): Promise<any>;
-  public abstract connect(opts?: any): Promise<void>;
-  public abstract disconnect(opts?: any): Promise<void>;
+  public abstract connect(params?: any): Promise<void>;
+  public abstract disconnect(params?: any): Promise<void>;
 }

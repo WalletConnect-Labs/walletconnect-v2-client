@@ -6,10 +6,10 @@ import {
   ConnectionCreated,
   ConnectionProposal,
   IConnection,
-  ConnectionProposeOptions,
-  ConnectionRespondOptions,
-  ConnectionCreateOptions,
-  ConnectionDeleteOptions,
+  ConnectionProposeParams,
+  ConnectionRespondParams,
+  ConnectionCreateParams,
+  ConnectionDeleteParams,
   ConnectionResponded,
 } from "../../types";
 import {
@@ -44,8 +44,8 @@ export class Connection extends IConnection {
     this.created.on("message", ({ topic, message }) => this.onMessage(topic, message));
   }
 
-  public async propose(opts?: ConnectionProposeOptions): Promise<string> {
-    const relay = opts?.relay || this.client.relay.default;
+  public async propose(params?: ConnectionProposeParams): Promise<ConnectionProposal> {
+    const relay = params?.relay || this.client.relay.default;
     const setup: ConnectionProposed = {
       relay,
       topic: await generateTopic(),
@@ -58,11 +58,11 @@ export class Connection extends IConnection {
       topic: setup.topic,
       publicKey: setup.keyPair.publicKey,
     };
-    return formatUri(this.client.protocol, this.client.version, setup.topic, proposal);
+    return proposal;
   }
 
-  public async respond(opts: ConnectionRespondOptions): Promise<string> {
-    const proposal = parseUri(opts.uri) as ConnectionProposal;
+  public async respond(params: ConnectionRespondParams): Promise<ConnectionResponded> {
+    const proposal = params.proposal;
     assertType(proposal, "publicKey", "string");
     const keyPair = generateKeyPair();
     const topic = proposal.topic;
@@ -81,13 +81,13 @@ export class Connection extends IConnection {
       connection,
     };
     this.responded.set(responded.topic, responded);
-    return connection.topic;
+    return responded;
   }
 
-  public async create(opts: ConnectionCreateOptions) {
-    const symKey = deriveSharedKey(opts.privateKey, opts.publicKey);
+  public async create(params: ConnectionCreateParams): Promise<ConnectionCreated> {
+    const symKey = deriveSharedKey(params.privateKey, params.publicKey);
     const connection: ConnectionCreated = {
-      relay: opts.relay,
+      relay: params.relay,
       symKey,
       topic: await sha256(symKey),
     };
@@ -95,7 +95,7 @@ export class Connection extends IConnection {
     return connection;
   }
 
-  public async delete(opts: ConnectionDeleteOptions) {
+  public async delete(params: ConnectionDeleteParams): Promise<void> {
     // TODO: implement delete
   }
 

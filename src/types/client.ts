@@ -39,13 +39,13 @@ export abstract class IProtocol extends IEvents {
   public abstract off(event: string, listener: any): void;
 
   // called by the initiator
-  public abstract propose(opts: any): Promise<any>;
+  public abstract propose(params?: any): Promise<any>;
   // called by the responder
-  public abstract respond(opts: any): Promise<any>;
+  public abstract respond(params?: any): Promise<any>;
   // called by both after successful connection
-  public abstract create(opts: any): Promise<any>;
+  public abstract create(params?: any): Promise<any>;
   // called by either when disconnecting
-  public abstract delete(opts: any): Promise<any>;
+  public abstract delete(params?: any): Promise<any>;
 
   // ---------- Protected ----------------------------------------------- //
 

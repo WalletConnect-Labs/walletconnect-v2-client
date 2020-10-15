@@ -1,20 +1,20 @@
-import { SpawnSyncOptionsWithStringEncoding } from "child_process";
 import { IClient, IProtocol, ISubscription } from "./client";
 import { KeyPair } from "./crypto";
 
-export interface ConnectionProposeOptions {
+export interface ConnectionProposeParams {
   relay: string;
 }
 
-export interface ConnectionRespondOptions {
-  uri: string;
+export interface ConnectionRespondParams {
+  approved: boolean;
+  proposal: ConnectionProposal;
 }
-export interface ConnectionCreateOptions {
+export interface ConnectionCreateParams {
   relay: string;
   privateKey: string;
   publicKey: string;
 }
-export interface ConnectionDeleteOptions {
+export interface ConnectionDeleteParams {
   topic: string;
 }
 
@@ -54,13 +54,13 @@ export abstract class IConnection extends IProtocol {
     super(client);
   }
 
-  public abstract propose(opts?: ConnectionProposeOptions): Promise<string>;
+  public abstract propose(params?: ConnectionProposeParams): Promise<ConnectionProposal>;
 
-  public abstract respond(opts: ConnectionRespondOptions): Promise<string>;
+  public abstract respond(params: ConnectionRespondParams): Promise<ConnectionResponded>;
 
-  public abstract create(opts: ConnectionCreateOptions): Promise<ConnectionCreated>;
+  public abstract create(params: ConnectionCreateParams): Promise<ConnectionCreated>;
 
-  public abstract delete(opts: ConnectionDeleteOptions): Promise<void>;
+  public abstract delete(params: ConnectionDeleteParams): Promise<void>;
 
   // ---------- Protected ----------------------------------------------- //
 
