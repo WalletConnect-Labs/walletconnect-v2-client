@@ -10,7 +10,7 @@ export abstract class ISequence extends IEvents {
   // created subscriptions
   public abstract created: ISubscription<any>;
 
-  protected abstract name: string;
+  protected abstract context: string;
 
   constructor(public client: IClient) {
     super();
