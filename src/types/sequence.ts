@@ -1,5 +1,5 @@
 import { IClient } from "./client";
-import { IEvents, Message } from "./events";
+import { IEvents, MessageEvent } from "./events";
 import { ISubscription } from "./subscription";
 
 export abstract class ISequence extends IEvents {
@@ -7,8 +7,10 @@ export abstract class ISequence extends IEvents {
   public abstract proposed: ISubscription<any>;
   // responded subscriptions
   public abstract responded: ISubscription<any>;
-  // created subscriptions
-  public abstract created: ISubscription<any>;
+  // settled subscriptions
+  public abstract settled: ISubscription<any>;
+  // returns settled connections length
+  public abstract readonly length: number;
   // describes sequence context
   protected abstract context: string;
 
@@ -21,21 +23,24 @@ export abstract class ISequence extends IEvents {
   public abstract once(event: string, listener: any): void;
   public abstract off(event: string, listener: any): void;
 
-  // called by the proposer
-  public abstract propose(params?: any): Promise<any>;
-  // called by the responder
-  public abstract respond(params?: any): Promise<any>;
-  // called by both after successful connection
+  // called by proposer
   public abstract create(params?: any): Promise<any>;
-  // called by either when disconnecting
+  // called by responder
+  public abstract respond(params?: any): Promise<any>;
+  // called by either to terminate
   public abstract delete(params?: any): Promise<any>;
 
   // ---------- Protected ----------------------------------------------- //
 
+  // called by proposer (internally)
+  protected abstract propose(params?: any): Promise<any>;
+  // called by both (internally)
+  protected abstract settle(params?: any): Promise<any>;
+
   // callback for proposed subscriptions
-  protected abstract onResponse(messageEvent: Message): Promise<any>;
+  protected abstract onResponse(messageEvent: MessageEvent): Promise<any>;
   // callback for responded subscriptions
-  protected abstract onAcknowledge(messageEvent: Message): Promise<any>;
-  // callback for created subscriptions
-  protected abstract onMessage(messageEvent: Message): Promise<any>;
+  protected abstract onAcknowledge(messageEvent: MessageEvent): Promise<any>;
+  // callback for settled subscriptions
+  protected abstract onMessage(messageEvent: MessageEvent): Promise<any>;
 }

@@ -3,15 +3,18 @@ import { EventEmitter } from "events";
 import {
   IClient,
   ConnectionProposed,
-  ConnectionCreated,
+  ConnectionSettled,
   ConnectionProposal,
   IConnection,
   ConnectionProposeParams,
   ConnectionRespondParams,
-  ConnectionCreateParams,
+  ConnectionSettleParams,
   ConnectionDeleteParams,
   ConnectionResponded,
-  Message,
+  MessageEvent,
+  ConnectionCreateParams,
+  CreatedEvent,
+  DeletedEvent,
 } from "../../types";
 import {
   generateKeyPair,
@@ -23,13 +26,14 @@ import {
   formatJsonRpcError,
   formatJsonRpcResult,
   safeJsonParse,
+  isConnectionFailed,
 } from "../../utils";
 import { Subscription } from "./subscription";
 
 export class Connection extends IConnection {
   public proposed: Subscription<ConnectionProposed>;
   public responded: Subscription<ConnectionResponded>;
-  public created: Subscription<ConnectionCreated>;
+  public settled: Subscription<ConnectionSettled>;
 
   protected events = new EventEmitter();
 
@@ -45,69 +49,74 @@ export class Connection extends IConnection {
       name: this.context,
       status: "responded",
     });
-    this.created = new Subscription<ConnectionCreated>(client, {
+    this.settled = new Subscription<ConnectionSettled>(client, {
       name: this.context,
-      status: "created",
+      status: "settled",
     });
     this.registerEventListeners();
   }
 
-  public async propose(params?: ConnectionProposeParams): Promise<ConnectionProposal> {
-    const relay = params?.relay || this.client.relay.default;
-    const setup: ConnectionProposed = {
-      relay,
-      topic: await generateTopic(),
-      keyPair: generateKeyPair(),
-    };
-    await this.proposed.set(setup.topic, setup);
+  get length(): number {
+    return this.settled.length;
+  }
 
-    const proposal: ConnectionProposal = {
-      relay: setup.relay,
-      topic: setup.topic,
-      publicKey: setup.keyPair.publicKey,
-    };
-    return proposal;
+  public async create(params?: ConnectionCreateParams): Promise<ConnectionSettled> {
+    return new Promise(async (resolve, reject) => {
+      const proposal = await this.propose(params);
+      this.proposed.on("deleted", async (proposed: ConnectionProposed) => {
+        if (proposed.topic !== proposal.topic) return;
+        const responded: ConnectionResponded = await this.responded.get(proposal.topic);
+        if (isConnectionFailed(responded.outcome)) {
+          reject(new Error(responded.outcome.reason));
+          this.responded.del(responded.topic, responded.outcome.reason);
+        } else {
+          resolve(responded.outcome);
+          this.responded.del(responded.topic, "Connection Settled");
+        }
+      });
+    });
   }
 
   public async respond(params: ConnectionRespondParams): Promise<ConnectionResponded> {
-    const proposal = params.proposal;
-    assertType(proposal, "publicKey", "string");
-    const keyPair = generateKeyPair();
-    const topic = proposal.topic;
-    const relay = proposal.relay;
-    const connection = await this.create({
-      relay,
-      privateKey: keyPair.privateKey,
-      publicKey: proposal.publicKey,
-    });
-    const request = formatJsonRpcRequest("wc_respondConnection", {
-      publicKey: proposal.publicKey,
-    });
-    this.client.relay.publish(topic, JSON.stringify(request), proposal.relay);
-    const responded: ConnectionResponded = {
-      ...proposal,
-      connection,
-    };
-    this.responded.set(responded.topic, responded);
-    return responded;
-  }
+    const { approved, proposal } = params;
+    if (approved) {
+      try {
+        assertType(proposal, "publicKey", "string");
+        const keyPair = generateKeyPair();
+        const relay = proposal.relay;
+        const connection = await this.settle({
+          relay,
+          privateKey: keyPair.privateKey,
+          publicKey: proposal.publicKey,
+        });
 
-  public async create(params: ConnectionCreateParams): Promise<ConnectionCreated> {
-    const symKey = deriveSharedKey(params.privateKey, params.publicKey);
-    const connection: ConnectionCreated = {
-      relay: params.relay,
-      symKey,
-      topic: await sha256(symKey),
-    };
-    await this.created.set(connection.topic, connection);
-    return connection;
+        const responded: ConnectionResponded = {
+          ...proposal,
+          outcome: connection,
+        };
+        await this.responded.set(responded.topic, responded);
+        return responded;
+      } catch (e) {
+        const reason = e.message;
+        const responded: ConnectionResponded = {
+          ...proposal,
+          outcome: { reason },
+        };
+        await this.responded.set(responded.topic, responded);
+        return responded;
+      }
+    } else {
+      const responded: ConnectionResponded = {
+        ...proposal,
+        outcome: { reason: "Connection not approved" },
+      };
+      await this.responded.set(responded.topic, responded);
+      return responded;
+    }
   }
 
   public async delete(params: ConnectionDeleteParams): Promise<void> {
-    const connection = await this.created.get(params.topic);
-    const request = formatJsonRpcRequest("wc_deleteConnection", { reason: params.reason });
-    this.client.relay.publish(connection.topic, JSON.stringify(request), connection.relay);
-    this.created.del(params.topic);
+    await this.settled.del(params.topic, params.reason);
   }
 
   public on(event: string, listener: any): void {
@@ -124,57 +133,109 @@ export class Connection extends IConnection {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected async onResponse(messageEvent: Message): Promise<void> {
+  protected async propose(params?: ConnectionProposeParams): Promise<ConnectionProposal> {
+    const relay = params?.relay || this.client.relay.default;
+    const proposed: ConnectionProposed = {
+      relay,
+      topic: await generateTopic(),
+      keyPair: generateKeyPair(),
+    };
+    await this.proposed.set(proposed.topic, proposed);
+
+    const proposal: ConnectionProposal = {
+      relay: proposed.relay,
+      topic: proposed.topic,
+      publicKey: proposed.keyPair.publicKey,
+    };
+    return proposal;
+  }
+
+  protected async settle(params: ConnectionSettleParams): Promise<ConnectionSettled> {
+    const symKey = deriveSharedKey(params.privateKey, params.publicKey);
+    const connection: ConnectionSettled = {
+      relay: params.relay,
+      symKey,
+      topic: await sha256(symKey),
+    };
+    await this.settled.set(connection.topic, connection);
+    return connection;
+  }
+
+  protected async onResponse(messageEvent: MessageEvent): Promise<void> {
     const { topic, message } = messageEvent;
     const request = safeJsonParse(message);
     const proposed = await this.proposed.get(topic);
     try {
       assertType(request, "publicKey", "string");
-      await this.create({
+      const connection = await this.settle({
         relay: request.relay,
         privateKey: proposed.keyPair.privateKey,
         publicKey: request.publicKey,
       });
       const response = formatJsonRpcResult(request.id, true);
       this.client.relay.publish(topic, JSON.stringify(response), proposed.relay);
+      const responded: ConnectionResponded = {
+        relay: proposed.relay,
+        topic: proposed.topic,
+        publicKey: proposed.keyPair.publicKey,
+        outcome: connection,
+      };
+      await this.responded.set(topic, responded);
     } catch (e) {
-      const response = formatJsonRpcError(request.id, e.message);
+      const reason = e.message;
+      const response = formatJsonRpcError(request.id, reason);
       this.client.relay.publish(topic, JSON.stringify(response), proposed.relay);
+      const responded: ConnectionResponded = {
+        relay: proposed.relay,
+        topic: proposed.topic,
+        publicKey: proposed.keyPair.publicKey,
+        outcome: { reason },
+      };
+      await this.responded.set(topic, responded);
     }
-    await this.proposed.del(topic);
+    await this.proposed.del(topic, "Proposal responded");
   }
 
-  protected async onAcknowledge(messageEvent: Message): Promise<void> {
+  protected async onAcknowledge(messageEvent: MessageEvent): Promise<void> {
     const { topic, message } = messageEvent;
     const response = safeJsonParse(message);
     const responded = await this.responded.get(topic);
-    if (response.error) {
-      this.created.del(responded.connection.topic);
+    if (response.error && !isConnectionFailed(responded.outcome)) {
+      await this.settled.del(responded.outcome.topic, response.error.message);
     }
-    this.responded.del(topic);
+    await this.responded.del(topic, "Response acknowledged");
   }
 
-  protected async onMessage(messageEvent: Message): Promise<void> {
+  protected async onMessage(messageEvent: MessageEvent): Promise<void> {
     this.events.emit("message", messageEvent);
   }
 
   // ---------- Private ----------------------------------------------- //
 
   private registerEventListeners(): void {
-    this.proposed.on("message", (messageEvent: Message) => this.onResponse(messageEvent));
-    this.proposed.on("created", (connection: ConnectionProposed) =>
-      this.events.emit("connection_proposed", connection),
+    this.proposed.on("message", (messageEvent: MessageEvent) => this.onResponse(messageEvent));
+    this.proposed.on("created", (createdEvent: CreatedEvent<ConnectionProposed>) =>
+      this.events.emit("connection_proposed", createdEvent.subscription),
     );
-    this.responded.on("message", (messageEvent: Message) => this.onAcknowledge(messageEvent));
-    this.responded.on("created", (connection: ConnectionResponded) =>
-      this.events.emit("connection_responded", connection),
+    this.responded.on("message", (messageEvent: MessageEvent) => this.onAcknowledge(messageEvent));
+    this.responded.on("created", (createdEvent: CreatedEvent<ConnectionResponded>) => {
+      const responded = createdEvent.subscription;
+      this.events.emit("connect_responded", responded);
+      const params = isConnectionFailed(responded.outcome)
+        ? { reason: responded.outcome.reason }
+        : { publicKey: responded.publicKey };
+      const request = formatJsonRpcRequest("wc_respondConnection", params);
+      this.client.relay.publish(responded.topic, JSON.stringify(request), responded.relay);
+    });
+    this.settled.on("message", (messageEvent: MessageEvent) => this.onMessage(messageEvent));
+    this.settled.on("created", (connection: ConnectionSettled) =>
+      this.events.emit("connection_settled", connection),
     );
-    this.created.on("message", (messageEvent: Message) => this.onMessage(messageEvent));
-    this.created.on("created", (connection: ConnectionCreated) =>
-      this.events.emit("connection_created", connection),
-    );
-    this.created.on("deleted", (connection: ConnectionCreated) =>
-      this.events.emit("connection_deleted", connection),
-    );
+    this.settled.on("deleted", (deletedEvent: DeletedEvent<ConnectionSettled>) => {
+      const connection = deletedEvent.subscription;
+      this.events.emit("connection_deleted", connection);
+      const request = formatJsonRpcRequest("wc_deleteConnection", { reason: deletedEvent.reason });
+      this.client.relay.publish(connection.topic, JSON.stringify(request), connection.relay);
+    });
   }
 }

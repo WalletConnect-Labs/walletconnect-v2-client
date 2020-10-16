@@ -2,16 +2,18 @@ import { IClient } from "./client";
 import { ISequence } from "./sequence";
 import { ISubscription } from "./subscription";
 import { KeyPair } from "./crypto";
-import { Message } from "./events";
-
+import { MessageEvent } from "./events";
 export interface SessionProposeParams {
   relay: string;
 }
+
+export type SessionCreateParams = SessionProposeParams;
+
 export interface SessionRespondParams {
   approved: boolean;
   proposal: SessionProposal;
 }
-export interface SessionCreateParams {
+export interface SessionSettleParams {
   relay: string;
   privateKey: string;
   publicKey: string;
@@ -33,14 +35,20 @@ export interface SessionProposal {
   publicKey: string;
 }
 
-export interface SessionResponded extends SessionProposal {
-  connection: SessionCreated;
-}
-
-export interface SessionCreated {
+export interface SessionSettled {
   relay: string;
   topic: string;
   symKey: string;
+}
+
+export interface SessionFailed {
+  reason: string;
+}
+
+export type SessionOutcome = SessionFailed | SessionSettled;
+
+export interface SessionResponded extends SessionProposal {
+  outcome: SessionOutcome;
 }
 
 export interface SessionMetadata {
@@ -53,25 +61,22 @@ export interface SessionMetadata {
 export abstract class ISession extends ISequence {
   public abstract proposed: ISubscription<SessionProposed>;
   public abstract responded: ISubscription<SessionResponded>;
-  public abstract created: ISubscription<SessionCreated>;
+  public abstract settled: ISubscription<SessionSettled>;
 
   constructor(public client: IClient) {
     super(client);
   }
 
-  public abstract propose(params?: SessionProposeParams): Promise<SessionProposal>;
-
+  public abstract create(params?: SessionCreateParams): Promise<SessionSettled>;
   public abstract respond(params: SessionRespondParams): Promise<SessionResponded>;
-
-  public abstract create(params: SessionCreateParams): Promise<SessionCreated>;
-
   public abstract delete(params: SessionDeleteParams): Promise<void>;
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected abstract onResponse(messageEvent: Message): Promise<void>;
+  protected abstract propose(params?: SessionProposeParams): Promise<SessionProposal>;
+  protected abstract settle(params: SessionSettleParams): Promise<SessionSettled>;
 
-  protected abstract onAcknowledge(messageEvent: Message): Promise<void>;
-
-  protected abstract onMessage(messageEvent: Message): Promise<void>;
+  protected abstract onResponse(messageEvent: MessageEvent): Promise<void>;
+  protected abstract onAcknowledge(messageEvent: MessageEvent): Promise<void>;
+  protected abstract onMessage(messageEvent: MessageEvent): Promise<void>;
 }

@@ -7,7 +7,13 @@ import {
   RelayUserOptions,
   ClientConnectParams,
   ClientDisconnectParams,
+  ConnectionResponded,
+  ConnectionProposed,
+  ConnectionProposal,
+  ConnectionSettled,
 } from "../types";
+import { formatUri } from "../utils";
+import { timeStamp } from "console";
 
 export class Client extends IClient {
   public readonly protocol = "wc";
@@ -50,39 +56,29 @@ export class Client extends IClient {
   }
 
   public async connect(params: ClientConnectParams) {
-    // TODO: implement connect
-    // the client should be able to render the UI internally by defining a standard user flow events
-    //
-    // required context params:
-    //    - environment identifier (aka connection metadata)
-    //    - persisted connections
-    //    - persisted sessions
-    //
-    // required user params:
-    //    - application identifier (aka session metadata)
-    //
-    // first: verify if there are any connections created
-    // if no connection is present,
-    //    - prompt user to create one
-    // if a connection is present
-    //    - prompt user to select existing or create a new one
-    // once a connection is established
-    //    - trigger connection_approved
-    //
-    // second: verify if session matches application
-    // if no sessions exists matching application
-    //    - prompt the user to approve session on mobile
-    // if a session exists matching application
-    //    - proceed
-    // once a session is established
-    //    - trigger session_approved
-    //
-    // finally: resolve promise
+    let connection: ConnectionSettled;
+    if (!this.connection.length) {
+      this.connection.on("connection_proposed", (proposed: ConnectionProposed) => {
+        const uri = formatUri(this.protocol, this.version, proposed.topic, {
+          relay: proposed.topic,
+          publicKey: proposed.keyPair.publicKey,
+        });
+        this.events.emit("show_uri", { uri });
+      });
+      connection = await this.connection.create();
+    } else {
+      // TODO: display connections to be selected
+      // this.events.emit("show_connections", { connections: Object.fromEntries(this.connections.settled.subscriptions.entries())})
+      //
+      // (temporarily let's just select the first one)
+      //
+      connection = this.connection.settled.subscriptions.values().next().value;
+    }
   }
 
   public async disconnect(params: ClientDisconnectParams) {
     // TODO: implement disconnect
-    // the client should be able to create the UI internally by defining a standard user flow
+    // the client should be able to settle the UI internally by defining a standard user flow
     //
     // required context params:
     //    - environment identifier (aka connection metadata)

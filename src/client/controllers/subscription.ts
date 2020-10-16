@@ -1,6 +1,13 @@
 import { EventEmitter } from "events";
 
-import { IClient, ISubscription, Message, SubscriptionContext } from "../../types";
+import {
+  CreatedEvent,
+  DeletedEvent,
+  IClient,
+  ISubscription,
+  MessageEvent,
+  SubscriptionContext,
+} from "../../types";
 
 export class Subscription<T = any> extends ISubscription<T> {
   public subscriptions = new Map<string, T>();
@@ -12,9 +19,13 @@ export class Subscription<T = any> extends ISubscription<T> {
     this.registerEventListeners();
   }
 
+  get length(): number {
+    return this.subscriptions.size;
+  }
+
   public async set(topic: string, subscription: T): Promise<void> {
     this.subscriptions.set(topic, subscription);
-    this.events.emit("created", subscription);
+    this.events.emit("created", { topic, subscription } as CreatedEvent<T>);
     this.client.relay.subscribe(
       topic,
       (message: string) => this.onMessage({ topic, message }),
@@ -32,14 +43,14 @@ export class Subscription<T = any> extends ISubscription<T> {
     return subscription;
   }
 
-  public async del(topic: string): Promise<void> {
+  public async del(topic: string, reason: string): Promise<void> {
     const subscription = await this.get(topic);
     this.client.relay.unsubscribe(
       topic,
       (message: string) => this.onMessage({ topic, message }),
       (subscription as any).relay,
     );
-    this.events.emit("deleted", subscription);
+    this.events.emit("deleted", { topic, subscription, reason } as DeletedEvent<T>);
   }
 
   public on(event: string, listener: any): void {
@@ -56,7 +67,7 @@ export class Subscription<T = any> extends ISubscription<T> {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected async onMessage(messageEvent: Message) {
+  protected async onMessage(messageEvent: MessageEvent) {
     this.events.emit("message", messageEvent);
   }
 

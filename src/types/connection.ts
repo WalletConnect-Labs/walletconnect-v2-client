@@ -2,17 +2,20 @@ import { IClient } from "./client";
 import { ISequence } from "./sequence";
 import { ISubscription } from "./subscription";
 import { KeyPair } from "./crypto";
-import { Message } from "./events";
+import { MessageEvent } from "./events";
 
 export interface ConnectionProposeParams {
   relay: string;
 }
 
+export type ConnectionCreateParams = ConnectionProposeParams;
+
 export interface ConnectionRespondParams {
   approved: boolean;
   proposal: ConnectionProposal;
 }
-export interface ConnectionCreateParams {
+
+export interface ConnectionSettleParams {
   relay: string;
   privateKey: string;
   publicKey: string;
@@ -34,14 +37,20 @@ export interface ConnectionProposal {
   publicKey: string;
 }
 
-export interface ConnectionResponded extends ConnectionProposal {
-  connection: ConnectionCreated;
-}
-
-export interface ConnectionCreated {
+export interface ConnectionSettled {
   relay: string;
   topic: string;
   symKey: string;
+}
+
+export interface ConnectionFailed {
+  reason: string;
+}
+
+export type ConnectionOutcome = ConnectionFailed | ConnectionSettled;
+
+export interface ConnectionResponded extends ConnectionProposal {
+  outcome: ConnectionOutcome;
 }
 
 export interface ConnectionMetadata {
@@ -52,25 +61,22 @@ export interface ConnectionMetadata {
 export abstract class IConnection extends ISequence {
   public abstract proposed: ISubscription<ConnectionProposed>;
   public abstract responded: ISubscription<ConnectionResponded>;
-  public abstract created: ISubscription<ConnectionCreated>;
+  public abstract settled: ISubscription<ConnectionSettled>;
 
   constructor(public client: IClient) {
     super(client);
   }
 
-  public abstract propose(params?: ConnectionProposeParams): Promise<ConnectionProposal>;
-
+  public abstract create(params?: ConnectionCreateParams): Promise<ConnectionSettled>;
   public abstract respond(params: ConnectionRespondParams): Promise<ConnectionResponded>;
-
-  public abstract create(params: ConnectionCreateParams): Promise<ConnectionCreated>;
-
   public abstract delete(params: ConnectionDeleteParams): Promise<void>;
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected abstract onResponse(messageEvent: Message): Promise<void>;
+  protected abstract propose(params?: ConnectionProposeParams): Promise<ConnectionProposal>;
+  protected abstract settle(params: ConnectionSettleParams): Promise<ConnectionSettled>;
 
-  protected abstract onAcknowledge(messageEvent: Message): Promise<void>;
-
-  protected abstract onMessage(messageEvent: Message): Promise<void>;
+  protected abstract onResponse(messageEvent: MessageEvent): Promise<void>;
+  protected abstract onAcknowledge(messageEvent: MessageEvent): Promise<void>;
+  protected abstract onMessage(messageEvent: MessageEvent): Promise<void>;
 }

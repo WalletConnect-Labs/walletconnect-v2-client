@@ -1,5 +1,5 @@
 import { IClient } from "./client";
-import { IEvents, Message } from "./events";
+import { IEvents, MessageEvent } from "./events";
 
 export interface SubscriptionContext {
   name: string;
@@ -9,6 +9,8 @@ export interface SubscriptionContext {
 export abstract class ISubscription<T> extends IEvents {
   public abstract subscriptions = new Map<string, T>();
 
+  public abstract readonly length: number;
+
   constructor(public client: IClient, public context: SubscriptionContext) {
     super();
   }
@@ -17,9 +19,9 @@ export abstract class ISubscription<T> extends IEvents {
 
   public abstract get(topic: string): Promise<T>;
 
-  public abstract del(topic: string): Promise<void>;
+  public abstract del(topic: string, reason: string): Promise<void>;
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected abstract onMessage(messageEvent: Message): Promise<any>;
+  protected abstract onMessage(messageEvent: MessageEvent): Promise<any>;
 }

@@ -7,19 +7,22 @@ import {
   SessionProposal,
   SessionProposed,
   SessionResponded,
-  SessionCreated,
+  SessionSettled,
   SessionProposeParams,
   SessionRespondParams,
-  SessionCreateParams,
+  SessionSettleParams,
   SessionDeleteParams,
-  Message,
+  MessageEvent,
+  SessionCreateParams,
+  DeletedEvent,
+  CreatedEvent,
 } from "../../types";
 import { formatJsonRpcRequest } from "../../utils";
 
 export class Session extends ISession {
   public proposed: Subscription<SessionProposed>;
   public responded: Subscription<SessionResponded>;
-  public created: Subscription<SessionCreated>;
+  public settled: Subscription<SessionSettled>;
 
   protected events = new EventEmitter();
 
@@ -35,16 +38,20 @@ export class Session extends ISession {
       name: this.context,
       status: "responded",
     });
-    this.created = new Subscription<SessionCreated>(client, {
+    this.settled = new Subscription<SessionSettled>(client, {
       name: this.context,
-      status: "created",
+      status: "settled",
     });
     this.registerEventListeners();
   }
 
-  public async propose(params?: SessionProposeParams): Promise<SessionProposal> {
-    // TODO: implement propose
-    return {} as SessionProposal;
+  get length(): number {
+    return this.settled.length;
+  }
+
+  public async create(params?: SessionCreateParams): Promise<SessionSettled> {
+    // TODO: implement respond
+    return {} as SessionSettled;
   }
 
   public async respond(params: SessionRespondParams): Promise<SessionResponded> {
@@ -52,16 +59,8 @@ export class Session extends ISession {
     return {} as SessionResponded;
   }
 
-  public async create(params: SessionCreateParams): Promise<SessionCreated> {
-    // TODO: implement create
-    return {} as SessionCreated;
-  }
-
   public async delete(params: SessionDeleteParams): Promise<void> {
-    const session = await this.created.get(params.topic);
-    const request = formatJsonRpcRequest("wc_deleteSession", { reason: params.reason });
-    this.client.relay.publish(session.topic, JSON.stringify(request), session.relay);
-    this.created.del(params.topic);
+    this.settled.del(params.topic, params.reason);
   }
 
   public on(event: string, listener: any): void {
@@ -78,35 +77,48 @@ export class Session extends ISession {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected async onResponse(messageEvent: Message): Promise<void> {
+  protected async propose(params?: SessionProposeParams): Promise<SessionProposal> {
+    // TODO: implement propose
+    return {} as SessionProposal;
+  }
+
+  protected async settle(params: SessionSettleParams): Promise<SessionSettled> {
+    // TODO: implement settle
+    return {} as SessionSettled;
+  }
+
+  protected async onResponse(messageEvent: MessageEvent): Promise<void> {
     // TODO: implement onResponse
   }
 
-  protected async onAcknowledge(messageEvent: Message): Promise<void> {
+  protected async onAcknowledge(messageEvent: MessageEvent): Promise<void> {
     // TODO: implement onAcknowledge
   }
 
-  protected async onMessage(messageEvent: Message) {
+  protected async onMessage(messageEvent: MessageEvent) {
     this.events.emit("message", messageEvent);
   }
 
   // ---------- Private ----------------------------------------------- //
 
   private registerEventListeners(): void {
-    this.proposed.on("message", (messageEvent: Message) => this.onResponse(messageEvent));
-    this.proposed.on("created", (session: SessionProposed) =>
-      this.events.emit("session_proposed", session),
+    this.proposed.on("message", (messageEvent: MessageEvent) => this.onResponse(messageEvent));
+    this.proposed.on("created", (createdEvent: CreatedEvent<SessionProposed>) =>
+      this.events.emit("session_proposed", createdEvent.subscription),
     );
-    this.responded.on("message", (messageEvent: Message) => this.onAcknowledge(messageEvent));
-    this.responded.on("created", (session: SessionResponded) =>
-      this.events.emit("session_responded", session),
+    this.responded.on("message", (messageEvent: MessageEvent) => this.onAcknowledge(messageEvent));
+    this.responded.on("created", (createdEvent: CreatedEvent<SessionResponded>) =>
+      this.events.emit("session_responded", createdEvent.subscription),
     );
-    this.created.on("message", (messageEvent: Message) => this.onMessage(messageEvent));
-    this.created.on("created", (session: SessionCreated) =>
-      this.events.emit("session_created", session),
+    this.settled.on("message", (messageEvent: MessageEvent) => this.onMessage(messageEvent));
+    this.settled.on("created", (createdEvent: CreatedEvent<SessionSettled>) =>
+      this.events.emit("session_settled", createdEvent.subscription),
     );
-    this.created.on("deleted", (session: SessionCreated) =>
-      this.events.emit("session_deleted", session),
-    );
+    this.settled.on("deleted", (deletedEvent: DeletedEvent<SessionSettled>) => {
+      const session = deletedEvent.subscription;
+      this.events.emit("session_deleted", session);
+      const request = formatJsonRpcRequest("wc_deleteConnection", { reason: deletedEvent.reason });
+      this.client.relay.publish(session.topic, JSON.stringify(request), session.relay);
+    });
   }
 }
