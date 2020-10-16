@@ -9,7 +9,7 @@ export abstract class ISequence extends IEvents {
   public abstract responded: ISubscription<any>;
   // created subscriptions
   public abstract created: ISubscription<any>;
-
+  // describes sequence context
   protected abstract context: string;
 
   constructor(public client: IClient) {
@@ -21,7 +21,7 @@ export abstract class ISequence extends IEvents {
   public abstract once(event: string, listener: any): void;
   public abstract off(event: string, listener: any): void;
 
-  // called by the initiator
+  // called by the proposer
   public abstract propose(params?: any): Promise<any>;
   // called by the responder
   public abstract respond(params?: any): Promise<any>;
