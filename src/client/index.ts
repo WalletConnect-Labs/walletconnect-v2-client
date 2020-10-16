@@ -68,7 +68,7 @@ export class Client extends IClient {
       connection = await this.connection.create();
     } else {
       // TODO: display connections to be selected
-      // this.events.emit("show_connections", { connections: })
+      // this.events.emit("show_connections", { connections: this.connections.settled.map })
       //
       // (temporarily let's just select the first one)
       //
