@@ -45,6 +45,12 @@ export class Session extends ISession {
     this.registerEventListeners();
   }
 
+  public async init(): Promise<void> {
+    await this.proposed.init();
+    await this.responded.init();
+    await this.settled.init();
+  }
+
   get length(): number {
     return this.settled.length;
   }

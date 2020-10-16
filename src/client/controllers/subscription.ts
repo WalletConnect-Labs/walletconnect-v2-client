@@ -8,6 +8,8 @@ import {
   MessageEvent,
   SubscriptionContext,
 } from "../../types";
+import { mapToObj, objToMap } from "../../utils";
+import { KeyValue } from "./store";
 
 export class Subscription<T = any> extends ISubscription<T> {
   public subscriptions = new Map<string, T>();
@@ -19,8 +21,16 @@ export class Subscription<T = any> extends ISubscription<T> {
     this.registerEventListeners();
   }
 
+  public async init(): Promise<void> {
+    await this.restore();
+  }
+
   get length(): number {
     return this.subscriptions.size;
+  }
+
+  get map(): KeyValue<T> {
+    return mapToObj<T>(this.subscriptions);
   }
 
   public async set(topic: string, subscription: T): Promise<void> {
@@ -74,7 +84,23 @@ export class Subscription<T = any> extends ISubscription<T> {
   // ---------- Private ----------------------------------------------- //
 
   private async persist() {
-    this.client.store.set(`${this.context.name}:${this.context.status}`, this.subscriptions);
+    await this.client.store.set<KeyValue<T>>(
+      `${this.context.name}:${this.context.status}`,
+      this.map,
+    );
+  }
+
+  private async restore() {
+    const subscriptions = await this.client.store.get<KeyValue<T>>(
+      `${this.context.name}:${this.context.status}`,
+    );
+    if (typeof subscriptions === "undefined") return;
+    if (this.subscriptions.size) {
+      throw new Error(
+        `Restore will override already set ${this.context.status} ${this.context.name}`,
+      );
+    }
+    this.subscriptions = objToMap<T>(subscriptions);
   }
 
   private registerEventListeners(): void {

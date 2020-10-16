@@ -2,6 +2,7 @@ import * as safeJsonUtils from "safe-json-utils";
 import * as jsonRpcUtils from "rpc-json-utils";
 
 import { sha256 } from "./crypto";
+import { KeyValue } from "../client/controllers";
 
 // -- JSON -------------------------------------------------- //
 
@@ -37,4 +38,14 @@ export function assertType(obj: any, key: string, type: string) {
   if (!obj[key] || typeof obj[key] !== type) {
     throw new Error(`Missing or invalid "${key}" param`);
   }
+}
+
+// -- map ------------------------------------------------- //
+
+export function mapToObj<T = any>(map: Map<string, T>): KeyValue<T> {
+  return Object.fromEntries(map.entries());
+}
+
+export function objToMap<T = any>(obj: KeyValue<T>): Map<string, T> {
+  return new Map<string, T>(Object.entries<T>(obj));
 }

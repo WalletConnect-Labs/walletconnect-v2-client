@@ -27,11 +27,11 @@ export abstract class IClient extends IEvents {
   public readonly protocol = "wc";
   public readonly version = 2;
 
+  public abstract store: IStore;
+  public abstract relay: IRelay;
+
   public abstract connection: IConnection;
   public abstract session: ISession;
-
-  public abstract relay: IRelay;
-  public abstract store: IStore;
 
   constructor(opts?: ClientOptions) {
     super();

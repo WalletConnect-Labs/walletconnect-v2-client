@@ -21,11 +21,11 @@ export class Client extends IClient {
 
   protected events = new EventEmitter();
 
+  public store: Store;
+  public relay: Relay;
+
   public connection: Connection;
   public session: Session;
-
-  public relay: Relay;
-  public store: Store;
 
   static async init(opts?: ClientOptions): Promise<Client> {
     const client = new Client(opts);
@@ -36,11 +36,11 @@ export class Client extends IClient {
   constructor(opts?: ClientOptions) {
     super(opts);
 
+    this.relay = new Relay(opts?.relay);
+    this.store = opts?.store || new Store();
+
     this.connection = new Connection(this);
     this.session = new Session(this);
-
-    this.store = opts?.store || new Store();
-    this.relay = new Relay(opts?.relay);
   }
 
   public on(event: string, listener: any): void {
@@ -68,7 +68,7 @@ export class Client extends IClient {
       connection = await this.connection.create();
     } else {
       // TODO: display connections to be selected
-      // this.events.emit("show_connections", { connections: Object.fromEntries(this.connections.settled.subscriptions.entries())})
+      // this.events.emit("show_connections", { connections: })
       //
       // (temporarily let's just select the first one)
       //
@@ -100,7 +100,9 @@ export class Client extends IClient {
   // ---------- Private ----------------------------------------------- //
 
   private async initialize(): Promise<any> {
-    await this.store.init();
     await this.relay.init();
+    await this.store.init();
+    await this.connection.init();
+    await this.session.init();
   }
 }

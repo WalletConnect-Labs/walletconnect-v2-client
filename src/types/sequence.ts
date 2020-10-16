@@ -18,6 +18,9 @@ export abstract class ISequence extends IEvents {
     super();
   }
 
+  // initialize with persisted state
+  public abstract init(): Promise<void>;
+
   // event methods
   public abstract on(event: string, listener: any): void;
   public abstract once(event: string, listener: any): void;
