@@ -102,14 +102,17 @@ export class Session extends ISession {
   // ---------- Private ----------------------------------------------- //
 
   private registerEventListeners(): void {
+    // Proposed Subscription Events
     this.proposed.on("message", (messageEvent: MessageEvent) => this.onResponse(messageEvent));
     this.proposed.on("created", (createdEvent: CreatedEvent<SessionProposed>) =>
       this.events.emit("session_proposed", createdEvent.subscription),
     );
+    // Responded Subscription Events
     this.responded.on("message", (messageEvent: MessageEvent) => this.onAcknowledge(messageEvent));
     this.responded.on("created", (createdEvent: CreatedEvent<SessionResponded>) =>
       this.events.emit("session_responded", createdEvent.subscription),
     );
+    // Settled Subscription Events
     this.settled.on("message", (messageEvent: MessageEvent) => this.onMessage(messageEvent));
     this.settled.on("created", (createdEvent: CreatedEvent<SessionSettled>) =>
       this.events.emit("session_settled", createdEvent.subscription),

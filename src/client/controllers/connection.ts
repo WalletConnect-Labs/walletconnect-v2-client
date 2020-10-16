@@ -213,10 +213,12 @@ export class Connection extends IConnection {
   // ---------- Private ----------------------------------------------- //
 
   private registerEventListeners(): void {
+    // Proposed Subscription Events
     this.proposed.on("message", (messageEvent: MessageEvent) => this.onResponse(messageEvent));
     this.proposed.on("created", (createdEvent: CreatedEvent<ConnectionProposed>) =>
       this.events.emit("connection_proposed", createdEvent.subscription),
     );
+    // Responded Subscription Events
     this.responded.on("message", (messageEvent: MessageEvent) => this.onAcknowledge(messageEvent));
     this.responded.on("created", (createdEvent: CreatedEvent<ConnectionResponded>) => {
       const responded = createdEvent.subscription;
@@ -227,6 +229,7 @@ export class Connection extends IConnection {
       const request = formatJsonRpcRequest("wc_respondConnection", params);
       this.client.relay.publish(responded.topic, JSON.stringify(request), responded.relay);
     });
+    // Settled Subscription Events
     this.settled.on("message", (messageEvent: MessageEvent) => this.onMessage(messageEvent));
     this.settled.on("created", (connection: ConnectionSettled) =>
       this.events.emit("connection_settled", connection),
