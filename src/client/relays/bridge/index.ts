@@ -5,7 +5,7 @@ import { BridgeProvider } from "./provider";
 import { formatJsonRpcRequest, payloadId } from "../../../utils";
 
 export class BridgeClient extends IRelayClient {
-  protected events = new EventEmitter();
+  public events = new EventEmitter();
 
   public provider: IJsonRpcProvider;
 

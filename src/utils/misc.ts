@@ -31,3 +31,11 @@ export function mapToObj<T = any>(map: Map<string, T>): KeyValue<T> {
 export function objToMap<T = any>(obj: KeyValue<T>): Map<string, T> {
   return new Map<string, T>(Object.entries<T>(obj));
 }
+
+export function mapKeyValue<A = any, B = any>(obj: KeyValue<A>, cb: (x: A) => B): KeyValue<B> {
+  const res = {};
+  Object.keys(obj).forEach(key => {
+    res[key] = cb(obj[key]);
+  });
+  return res;
+}

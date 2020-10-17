@@ -24,8 +24,8 @@ export abstract class ISequence<
   public abstract settled: ISubscription<Settled>;
   // returns settled subscriptions length
   public abstract readonly length: number;
-  // returns settled subscriptions map
-  public abstract readonly map: KeyValue<Settled>;
+  // returns settled subscriptions entries
+  public abstract readonly entries: KeyValue<Settled>;
   // describes sequence context
   protected abstract context: string;
 

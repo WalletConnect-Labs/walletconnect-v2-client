@@ -8,7 +8,7 @@ export class Relay extends IRelay {
   public default = DEFAULT_RELAY;
   public clients: RelayClients = {};
 
-  protected events = new EventEmitter();
+  public events = new EventEmitter();
 
   constructor(opts: RelayUserOptions = {}) {
     super();

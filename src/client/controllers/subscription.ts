@@ -1,14 +1,20 @@
 import { EventEmitter } from "events";
 
-import { IClient, ISubscription, SubscriptionEvent, SubscriptionContext } from "../../types";
+import {
+  IClient,
+  ISubscription,
+  SubscriptionEvent,
+  SubscriptionContext,
+  SubscriptionTracker,
+} from "../../types";
 import { mapToObj, objToMap } from "../../utils";
 import { SUBSCRIPTION_EVENTS } from "../constants";
 import { KeyValue } from "./store";
 
-export class Subscription<T = any> extends ISubscription<T> {
-  public subscriptions = new Map<string, T>();
+export class Subscription<Data = any> extends ISubscription<Data> {
+  public subscriptions = new Map<string, SubscriptionTracker<Data>>();
 
-  protected events = new EventEmitter();
+  public events = new EventEmitter();
 
   constructor(public client: IClient, public context: SubscriptionContext) {
     super(client, context);
@@ -23,53 +29,57 @@ export class Subscription<T = any> extends ISubscription<T> {
     return this.subscriptions.size;
   }
 
-  get map(): KeyValue<T> {
-    return mapToObj<T>(this.subscriptions);
+  get entries(): KeyValue<SubscriptionTracker<Data>> {
+    return mapToObj<SubscriptionTracker<Data>>(this.subscriptions);
   }
 
-  public async set(topic: string, subscription: T): Promise<void> {
+  public async set(topic: string, relay: string, data: Data): Promise<void> {
     if (this.subscriptions.has(topic)) {
-      this.subscriptions.set(topic, subscription);
-      this.events.emit(SUBSCRIPTION_EVENTS.updated, {
-        topic,
-        subscription,
-      } as SubscriptionEvent.Updated<T>);
+      this.subscriptions.set(topic, { topic, relay, data });
+      this.events.emit(SUBSCRIPTION_EVENTS.updated, { topic, data } as SubscriptionEvent.Updated<
+        Data
+      >);
     } else {
-      this.subscriptions.set(topic, subscription);
+      this.subscriptions.set(topic, { topic, relay, data });
       this.events.emit(SUBSCRIPTION_EVENTS.created, {
         topic,
-        subscription,
-      } as SubscriptionEvent.Created<T>);
+        data,
+      } as SubscriptionEvent.Created<Data>);
       this.client.relay.subscribe(
         topic,
         (message: string) => this.onMessage({ topic, message }),
-        (subscription as any).relay,
+        relay,
       );
     }
   }
 
-  public async get(topic: string): Promise<T> {
+  public async get(topic: string): Promise<Data> {
     const subscription = this.subscriptions.get(topic);
     if (!subscription) {
       throw new Error(
         `No matching ${this.context.status} ${this.context.name} with topic: ${topic}`,
       );
     }
-    return subscription;
+    return subscription.data;
   }
 
   public async del(topic: string, reason: string): Promise<void> {
-    const subscription = await this.get(topic);
+    const subscription = this.subscriptions.get(topic);
+    if (!subscription) {
+      throw new Error(
+        `No matching ${this.context.status} ${this.context.name} with topic: ${topic}`,
+      );
+    }
     this.client.relay.unsubscribe(
       topic,
       (message: string) => this.onMessage({ topic, message }),
-      (subscription as any).relay,
+      subscription.relay,
     );
     this.events.emit(SUBSCRIPTION_EVENTS.deleted, {
       topic,
-      subscription,
+      data: subscription.data,
       reason,
-    } as SubscriptionEvent.Deleted<T>);
+    } as SubscriptionEvent.Deleted<Data>);
   }
 
   public on(event: string, listener: any): void {
@@ -93,14 +103,14 @@ export class Subscription<T = any> extends ISubscription<T> {
   // ---------- Private ----------------------------------------------- //
 
   private async persist() {
-    await this.client.store.set<KeyValue<T>>(
+    await this.client.store.set<KeyValue<SubscriptionTracker<Data>>>(
       `${this.context.name}:${this.context.status}`,
-      this.map,
+      this.entries,
     );
   }
 
   private async restore() {
-    const subscriptions = await this.client.store.get<KeyValue<T>>(
+    const subscriptions = await this.client.store.get<KeyValue<SubscriptionTracker<Data>>>(
       `${this.context.name}:${this.context.status}`,
     );
     if (typeof subscriptions === "undefined") return;
@@ -109,7 +119,15 @@ export class Subscription<T = any> extends ISubscription<T> {
         `Restore will override already set ${this.context.status} ${this.context.name}`,
       );
     }
-    this.subscriptions = objToMap<T>(subscriptions);
+    this.subscriptions = objToMap<SubscriptionTracker<Data>>(subscriptions);
+    for (const [_, subscription] of this.subscriptions) {
+      const { topic, relay } = subscription;
+      this.client.relay.subscribe(
+        topic,
+        (message: string) => this.onMessage({ topic, message }),
+        relay,
+      );
+    }
   }
 
   private registerEventListeners(): void {

@@ -1,20 +1,34 @@
 import { ISequence } from "./sequence";
 import { KeyPair } from "./crypto";
 export declare namespace SessionTypes {
-  export interface ProposeParams {
+  export interface Connection {
+    topic: string;
     relay: string;
+  }
+
+  export interface ProposeParams {
+    connection: Omit<Connection, "relay">;
+    relay: string;
+    stateParams: StateParams;
+    metadata: Metadata;
+    rules: Rules;
   }
 
   export type CreateParams = ProposeParams;
 
   export interface RespondParams {
+    request: { id: number };
     approved: boolean;
+    state: State;
+    metadata: Metadata;
     proposal: Proposal;
   }
   export interface SettleParams {
     relay: string;
-    peer: Peer;
     keyPair: KeyPair;
+    peer: Peer;
+    state: State;
+    rules: Rules;
   }
 
   export interface UpdateParams {
@@ -30,16 +44,17 @@ export declare namespace SessionTypes {
   }
 
   export interface Proposed {
-    relay: string;
-    topic: string;
+    connection: Connection;
     keyPair: KeyPair;
+    proposal: Proposal;
   }
 
   export interface Proposal {
+    connection: Connection;
     relay: string;
-    topic: string;
-    permissions: Rules;
     peer: Peer;
+    stateParams: StateParams;
+    rules: Rules;
   }
 
   export interface Settled {
@@ -62,6 +77,10 @@ export declare namespace SessionTypes {
     description: string;
     url: string;
     icons: string[];
+  }
+
+  export interface StateParams {
+    chains: string[];
   }
 
   export interface State {
@@ -91,6 +110,7 @@ export declare namespace SessionTypes {
   export type Outcome = Failed | Success;
 
   export interface Responded extends Proposal {
+    request: { id: number };
     outcome: Outcome;
   }
 }

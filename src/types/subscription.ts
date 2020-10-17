@@ -7,6 +7,12 @@ export interface SubscriptionContext {
   status: string;
 }
 
+export interface SubscriptionTracker<Data> {
+  topic: string;
+  relay: string;
+  data: Data;
+}
+
 export declare namespace SubscriptionEvent {
   export interface Message {
     topic: string;
@@ -15,27 +21,27 @@ export declare namespace SubscriptionEvent {
 
   export interface Created<T> {
     topic: string;
-    subscription: T;
+    data: T;
   }
 
   export interface Updated<T> {
     topic: string;
-    subscription: T;
+    data: T;
   }
 
   export interface Deleted<T> {
     topic: string;
-    subscription: T;
+    data: T;
     reason: string;
   }
 }
 
-export abstract class ISubscription<T> extends IEvents {
-  public abstract subscriptions = new Map<string, T>();
+export abstract class ISubscription<Data> extends IEvents {
+  public abstract subscriptions = new Map<string, SubscriptionTracker<Data>>();
 
   public abstract readonly length: number;
 
-  public abstract readonly map: KeyValue<T>;
+  public abstract readonly entries: KeyValue<SubscriptionTracker<Data>>;
 
   constructor(public client: IClient, public context: SubscriptionContext) {
     super();
@@ -43,9 +49,9 @@ export abstract class ISubscription<T> extends IEvents {
 
   public abstract init(): Promise<void>;
 
-  public abstract set(topic: string, subscription: T): Promise<void>;
+  public abstract set(topic: string, relay: string, data: Data): Promise<void>;
 
-  public abstract get(topic: string): Promise<T>;
+  public abstract get(topic: string): Promise<Data>;
 
   public abstract del(topic: string, reason: string): Promise<void>;
 

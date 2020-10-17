@@ -1,25 +1,48 @@
 import { EventEmitter } from "events";
 
 import { Subscription } from "./subscription";
-import { IClient, ISession, SubscriptionEvent, SessionTypes } from "../../types";
-import { formatJsonRpcRequest, safeJsonStringify } from "../../utils";
+import {
+  IClient,
+  ISession,
+  SubscriptionEvent,
+  SessionTypes,
+  JsonRpcResult,
+  JsonRpcError,
+  JsonRpcResponse,
+  JsonRpcRequest,
+} from "../../types";
+import {
+  assertType,
+  deriveSharedKey,
+  formatJsonRpcRequest,
+  formatJsonRpcResult,
+  generateKeyPair,
+  isSessionFailed,
+  mapKeyValue,
+  safeJsonParse,
+  safeJsonStringify,
+  sha256,
+} from "../../utils";
 import {
   SESSION_JSONRPC,
   SUBSCRIPTION_EVENTS,
   SESSION_EVENTS,
   SESSION_STATUS,
-  CONNECTION_CONTEXT,
+  SESSION_CONTEXT,
+  SESSION_REASONS,
+  SESSION_JSONRPC_AFTER_SETTLEMENT,
 } from "../constants";
 import { KeyValue } from "./store";
+import { formatJsonRpcError } from "rpc-json-utils";
 
 export class Session extends ISession {
   public proposed: Subscription<SessionTypes.Proposed>;
   public responded: Subscription<SessionTypes.Responded>;
   public settled: Subscription<SessionTypes.Settled>;
 
-  protected events = new EventEmitter();
+  public events = new EventEmitter();
 
-  protected context = CONNECTION_CONTEXT;
+  protected context = SESSION_CONTEXT;
 
   constructor(public client: IClient) {
     super(client);
@@ -48,18 +71,70 @@ export class Session extends ISession {
     return this.settled.length;
   }
 
-  get map(): KeyValue<SessionTypes.Settled> {
-    return this.settled.map;
+  get entries(): KeyValue<SessionTypes.Settled> {
+    return mapKeyValue(this.settled.entries, x => x.data);
   }
 
-  public async create(params?: SessionTypes.CreateParams): Promise<SessionTypes.Settled> {
-    // TODO: implement respond
-    return {} as SessionTypes.Settled;
+  public async create(params: SessionTypes.CreateParams): Promise<SessionTypes.Settled> {
+    return new Promise(async (resolve, reject) => {
+      const proposal = await this.propose(params);
+      this.proposed.on(SUBSCRIPTION_EVENTS.deleted, async (proposed: SessionTypes.Proposed) => {
+        if (proposed.connection.topic !== proposal.connection.topic) return;
+        const responded: SessionTypes.Responded = await this.responded.get(
+          proposal.connection.topic,
+        );
+        if (isSessionFailed(responded.outcome)) {
+          await this.responded.del(responded.connection.topic, responded.outcome.reason);
+          reject(new Error(responded.outcome.reason));
+        } else {
+          const session = await this.settled.get(responded.outcome.topic);
+          await this.responded.del(responded.connection.topic, SESSION_REASONS.settled);
+          resolve(session);
+        }
+      });
+    });
   }
-
   public async respond(params: SessionTypes.RespondParams): Promise<SessionTypes.Responded> {
-    // TODO: implement respond
-    return {} as SessionTypes.Responded;
+    const { approved, proposal } = params;
+    if (approved) {
+      try {
+        assertType(proposal, "publicKey", "string");
+        const keyPair = generateKeyPair();
+        const relay = proposal.relay;
+        const session = await this.settle({
+          relay,
+          keyPair,
+          peer: proposal.peer,
+          state: params.state,
+          rules: proposal.rules,
+        });
+
+        const responded: SessionTypes.Responded = {
+          ...proposal,
+          request: params.request,
+          outcome: session,
+        };
+        await this.responded.set(responded.connection.topic, responded.connection.relay, responded);
+        return responded;
+      } catch (e) {
+        const reason = e.message;
+        const responded: SessionTypes.Responded = {
+          ...proposal,
+          request: params.request,
+          outcome: { reason },
+        };
+        await this.responded.set(responded.connection.topic, responded.connection.relay, responded);
+        return responded;
+      }
+    } else {
+      const responded: SessionTypes.Responded = {
+        ...proposal,
+        request: params.request,
+        outcome: { reason: SESSION_REASONS.not_approved },
+      };
+      await this.responded.set(responded.connection.topic, responded.connection.relay, responded);
+      return responded;
+    }
   }
 
   public async update(params: SessionTypes.UpdateParams): Promise<SessionTypes.Settled> {
@@ -85,22 +160,84 @@ export class Session extends ISession {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected async propose(params?: SessionTypes.ProposeParams): Promise<SessionTypes.Proposal> {
-    // TODO: implement propose
-    return {} as SessionTypes.Proposal;
+  protected async propose(params: SessionTypes.ProposeParams): Promise<SessionTypes.Proposal> {
+    const connection = await this.client.connection.settled.get(params.connection.topic);
+    const keyPair = generateKeyPair();
+    const proposal: SessionTypes.Proposal = {
+      connection: {
+        topic: connection.topic,
+        relay: connection.relay,
+      },
+      relay: params.relay,
+      peer: {
+        publicKey: keyPair.publicKey,
+        metadata: params.metadata,
+      },
+      stateParams: params.stateParams,
+      rules: params.rules,
+    };
+    const proposed: SessionTypes.Proposed = {
+      connection: {
+        topic: connection.topic,
+        relay: connection.relay,
+      },
+      keyPair,
+      proposal,
+    };
+    const request = formatJsonRpcRequest(SESSION_JSONRPC.propose, proposal);
+    this.client.relay.publish(
+      proposed.connection.topic,
+      safeJsonStringify(request),
+      proposed.connection.relay,
+    );
+    this.proposed.set(proposed.connection.topic, proposed.connection.relay, proposed);
+    return proposal;
   }
 
   protected async settle(params: SessionTypes.SettleParams): Promise<SessionTypes.Settled> {
-    // TODO: implement settle
-    return {} as SessionTypes.Settled;
+    const symKey = deriveSharedKey(params.keyPair.privateKey, params.peer.publicKey);
+    const session: SessionTypes.Settled = {
+      relay: params.relay,
+      topic: await sha256(symKey),
+      symKey,
+      keyPair: params.keyPair,
+      peer: params.peer,
+      state: params.state,
+      rules: {
+        ...params.rules,
+        jsonrpc: [...SESSION_JSONRPC_AFTER_SETTLEMENT, ...params.rules.jsonrpc],
+      },
+    };
+    await this.settled.set(session.topic, session.relay, session);
+    return session;
   }
 
   protected async onResponse(messageEvent: SubscriptionEvent.Message): Promise<void> {
-    // TODO: implement onResponse
+    const { topic, message } = messageEvent;
+    const response = safeJsonParse(message) as JsonRpcResponse;
+    if (typeof (response as JsonRpcResult).result !== "undefined") {
+      const result = (response as JsonRpcResult).result;
+      const proposed = await this.proposed.get(topic);
+      const { relay } = proposed.connection;
+      assertType(response, "publicKey", "string");
+      const session = await this.settle({
+        relay,
+        keyPair: proposed.keyPair,
+        peer: proposed.proposal.peer,
+        state: result.state,
+        rules: proposed.proposal.rules,
+      });
+      const request = formatJsonRpcRequest(SESSION_JSONRPC.acknowledge, {
+        topic: proposed.connection.topic,
+      });
+      this.client.relay.publish(topic, safeJsonStringify(request), relay);
+    }
+
+    await this.proposed.del(topic, SESSION_REASONS.responded);
   }
 
   protected async onAcknowledge(messageEvent: SubscriptionEvent.Message): Promise<void> {
-    // TODO: implement onAcknowledge
+    await this.responded.del(messageEvent.topic, SESSION_REASONS.acknowledged);
   }
 
   protected async onMessage(messageEvent: SubscriptionEvent.Message): Promise<void> {
@@ -130,7 +267,7 @@ export class Session extends ISession {
     this.proposed.on(
       SUBSCRIPTION_EVENTS.created,
       (createdEvent: SubscriptionEvent.Created<SessionTypes.Proposed>) =>
-        this.events.emit(SESSION_EVENTS.proposed, createdEvent.subscription),
+        this.events.emit(SESSION_EVENTS.proposed, createdEvent.data),
     );
     // Responded Subscription Events
     this.responded.on(SUBSCRIPTION_EVENTS.message, (messageEvent: SubscriptionEvent.Message) =>
@@ -138,8 +275,21 @@ export class Session extends ISession {
     );
     this.responded.on(
       SUBSCRIPTION_EVENTS.created,
-      (createdEvent: SubscriptionEvent.Created<SessionTypes.Responded>) =>
-        this.events.emit(SESSION_EVENTS.responded, createdEvent.subscription),
+      (createdEvent: SubscriptionEvent.Created<SessionTypes.Responded>) => {
+        const responded = createdEvent.data;
+        this.events.emit(SESSION_EVENTS.responded, responded);
+        let response: JsonRpcResponse;
+        if (isSessionFailed(responded.outcome)) {
+          response = formatJsonRpcError(responded.request.id, responded.outcome.reason);
+        } else {
+          response = formatJsonRpcResult(responded.request.id, responded.outcome);
+        }
+        this.client.relay.publish(
+          responded.connection.topic,
+          safeJsonStringify(response),
+          responded.connection.relay,
+        );
+      },
     );
     // Settled Subscription Events
     this.settled.on(SUBSCRIPTION_EVENTS.message, (messageEvent: SubscriptionEvent.Message) =>
@@ -148,17 +298,17 @@ export class Session extends ISession {
     this.settled.on(
       SUBSCRIPTION_EVENTS.created,
       (createdEvent: SubscriptionEvent.Created<SessionTypes.Settled>) =>
-        this.events.emit(SESSION_EVENTS.settled, createdEvent.subscription),
+        this.events.emit(SESSION_EVENTS.settled, createdEvent.data),
     );
     this.settled.on(
       SUBSCRIPTION_EVENTS.updated,
       (updatedEvent: SubscriptionEvent.Updated<SessionTypes.Settled>) =>
-        this.events.emit(SESSION_EVENTS.updated, updatedEvent.subscription),
+        this.events.emit(SESSION_EVENTS.updated, updatedEvent.data),
     );
     this.settled.on(
       SUBSCRIPTION_EVENTS.deleted,
       (deletedEvent: SubscriptionEvent.Deleted<SessionTypes.Settled>) => {
-        const session = deletedEvent.subscription;
+        const session = deletedEvent.data;
         this.events.emit(SESSION_EVENTS.deleted, session);
         const request = formatJsonRpcRequest(SESSION_JSONRPC.delete, {
           reason: deletedEvent.reason,

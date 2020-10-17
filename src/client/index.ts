@@ -16,7 +16,7 @@ export class Client extends IClient {
   public readonly protocol = "wc";
   public readonly version = 2;
 
-  protected events = new EventEmitter();
+  public events = new EventEmitter();
 
   public store: Store;
   public relay: Relay;
@@ -65,7 +65,7 @@ export class Client extends IClient {
       connection = await this.connection.create();
     } else {
       // TODO: display connections to be selected
-      // this.events.emit("show_connections", { connections: this.connections.map })
+      // this.events.emit("show_connections", { connections: this.connections.entries })
       //
       // (temporarily let's just select the first one)
       //

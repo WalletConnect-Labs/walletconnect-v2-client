@@ -7,8 +7,9 @@ export type JsonRpcResult = rpcJsonUtils.JsonRpcResult;
 
 export type JsonRpcError = rpcJsonUtils.JsonRpcError;
 
-export type JsonRpcPayload = JsonRpcRequest | JsonRpcResult | JsonRpcResult;
+export type JsonRpcResponse = JsonRpcResult | JsonRpcError;
 
+export type JsonRpcPayload = JsonRpcRequest | JsonRpcResponse;
 export type ErrorResponse = rpcJsonUtils.ErrorResponse;
 
 export abstract class IJsonRpcProvider extends IEvents {

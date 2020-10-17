@@ -8,7 +8,7 @@ const WS =
   typeof global.WebSocket !== "undefined" ? global.WebSocket : require("ws");
 
 export class BridgeProvider extends IJsonRpcProvider {
-  protected events = new EventEmitter();
+  public events = new EventEmitter();
 
   public rpcUrl: string;
   public socket: WebSocket | undefined;
