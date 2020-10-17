@@ -1,7 +1,7 @@
 import { KeyValue } from "../client/controllers";
 import { IClient } from "./client";
-import { IEvents, MessageEvent } from "./events";
-import { ISubscription } from "./subscription";
+import { IEvents } from "./events";
+import { ISubscription, SubscriptionEvent } from "./subscription";
 
 export abstract class ISequence<
   Proposed,
@@ -58,13 +58,13 @@ export abstract class ISequence<
   protected abstract settle(params: SettleParams): Promise<Settled>;
 
   // callback for proposed subscriptions
-  protected abstract onResponse(messageEvent: MessageEvent): Promise<void>;
+  protected abstract onResponse(messageEvent: SubscriptionEvent.Message): Promise<void>;
   // callback for responded subscriptions
-  protected abstract onAcknowledge(messageEvent: MessageEvent): Promise<void>;
+  protected abstract onAcknowledge(messageEvent: SubscriptionEvent.Message): Promise<void>;
   // callback for settled subscriptions
-  protected abstract onMessage(messageEvent: MessageEvent): Promise<void>;
+  protected abstract onMessage(messageEvent: SubscriptionEvent.Message): Promise<void>;
   // callback for state update requests
-  protected abstract onUpdate(messageEvent: MessageEvent): Promise<void>;
+  protected abstract onUpdate(messageEvent: SubscriptionEvent.Message): Promise<void>;
   // validates and processes state udpates
   protected abstract handleUpdate(
     settled: Settled,

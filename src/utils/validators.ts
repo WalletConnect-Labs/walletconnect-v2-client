@@ -1,9 +1,11 @@
-import { ConnectionOutcome, ConnectionFailed, SessionOutcome, SessionFailed } from "../types";
+import { ConnectionTypes, SessionTypes } from "../types";
 
-export function isConnectionFailed(outcome: ConnectionOutcome): outcome is ConnectionFailed {
+export function isConnectionFailed(
+  outcome: ConnectionTypes.Outcome,
+): outcome is ConnectionTypes.Failed {
   return "reason" in outcome;
 }
 
-export function isSessionFailed(outcome: SessionOutcome): outcome is SessionFailed {
+export function isSessionFailed(outcome: SessionTypes.Outcome): outcome is SessionTypes.Failed {
   return "reason" in outcome;
 }

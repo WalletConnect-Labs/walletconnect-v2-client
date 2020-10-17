@@ -4,13 +4,9 @@ import { Store, Connection, Session, Relay } from "./controllers";
 import {
   IClient,
   ClientOptions,
-  RelayUserOptions,
   ClientConnectParams,
   ClientDisconnectParams,
-  ConnectionResponded,
-  ConnectionProposed,
-  ConnectionProposal,
-  ConnectionSettled,
+  ConnectionTypes,
 } from "../types";
 import { formatUri } from "../utils";
 import { timeStamp } from "console";
@@ -57,9 +53,9 @@ export class Client extends IClient {
   }
 
   public async connect(params: ClientConnectParams) {
-    let connection: ConnectionSettled;
+    let connection: ConnectionTypes.Settled;
     if (!this.connection.length) {
-      this.connection.on(CONNECTION_EVENTS.proposed, (proposed: ConnectionProposed) => {
+      this.connection.on(CONNECTION_EVENTS.proposed, (proposed: ConnectionTypes.Proposed) => {
         const uri = formatUri(this.protocol, this.version, proposed.topic, {
           relay: proposed.topic,
           publicKey: proposed.keyPair.publicKey,

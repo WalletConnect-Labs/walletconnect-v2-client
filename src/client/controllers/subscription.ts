@@ -1,14 +1,6 @@
 import { EventEmitter } from "events";
 
-import {
-  CreatedEvent,
-  UpdatedEvent,
-  DeletedEvent,
-  IClient,
-  ISubscription,
-  MessageEvent,
-  SubscriptionContext,
-} from "../../types";
+import { IClient, ISubscription, SubscriptionEvent, SubscriptionContext } from "../../types";
 import { mapToObj, objToMap } from "../../utils";
 import { SUBSCRIPTION_EVENTS } from "../constants";
 import { KeyValue } from "./store";
@@ -38,10 +30,16 @@ export class Subscription<T = any> extends ISubscription<T> {
   public async set(topic: string, subscription: T): Promise<void> {
     if (this.subscriptions.has(topic)) {
       this.subscriptions.set(topic, subscription);
-      this.events.emit(SUBSCRIPTION_EVENTS.updated, { topic, subscription } as UpdatedEvent<T>);
+      this.events.emit(SUBSCRIPTION_EVENTS.updated, {
+        topic,
+        subscription,
+      } as SubscriptionEvent.Updated<T>);
     } else {
       this.subscriptions.set(topic, subscription);
-      this.events.emit(SUBSCRIPTION_EVENTS.created, { topic, subscription } as CreatedEvent<T>);
+      this.events.emit(SUBSCRIPTION_EVENTS.created, {
+        topic,
+        subscription,
+      } as SubscriptionEvent.Created<T>);
       this.client.relay.subscribe(
         topic,
         (message: string) => this.onMessage({ topic, message }),
@@ -67,9 +65,11 @@ export class Subscription<T = any> extends ISubscription<T> {
       (message: string) => this.onMessage({ topic, message }),
       (subscription as any).relay,
     );
-    this.events.emit(SUBSCRIPTION_EVENTS.deleted, { topic, subscription, reason } as DeletedEvent<
-      T
-    >);
+    this.events.emit(SUBSCRIPTION_EVENTS.deleted, {
+      topic,
+      subscription,
+      reason,
+    } as SubscriptionEvent.Deleted<T>);
   }
 
   public on(event: string, listener: any): void {
@@ -86,7 +86,7 @@ export class Subscription<T = any> extends ISubscription<T> {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected async onMessage(messageEvent: MessageEvent) {
+  protected async onMessage(messageEvent: SubscriptionEvent.Message) {
     this.events.emit(SUBSCRIPTION_EVENTS.message, messageEvent);
   }
 

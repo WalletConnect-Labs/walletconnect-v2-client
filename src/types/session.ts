@@ -1,109 +1,110 @@
 import { ISequence } from "./sequence";
 import { KeyPair } from "./crypto";
+export declare namespace SessionTypes {
+  export interface ProposeParams {
+    relay: string;
+  }
 
-export interface SessionProposeParams {
-  relay: string;
-}
+  export type CreateParams = ProposeParams;
 
-export type SessionCreateParams = SessionProposeParams;
+  export interface RespondParams {
+    approved: boolean;
+    proposal: Proposal;
+  }
+  export interface SettleParams {
+    relay: string;
+    peer: Peer;
+    keyPair: KeyPair;
+  }
 
-export interface SessionRespondParams {
-  approved: boolean;
-  proposal: SessionProposal;
-}
-export interface SessionSettleParams {
-  relay: string;
-  peer: SessionPeer;
-  keyPair: KeyPair;
-}
+  export interface UpdateParams {
+    topic: string;
+    state?: State;
+    metadata?: Metadata;
+  }
 
-export interface SessionUpdateParams {
-  topic: string;
-  state?: SessionState;
-  metadata?: SessionMetadata;
-}
+  export type Update = { state: State } | { metadata: Metadata };
+  export interface DeleteParams {
+    topic: string;
+    reason: string;
+  }
 
-export type SessionUpdate = { state: SessionState } | { metadata: SessionMetadata };
-export interface SessionDeleteParams {
-  topic: string;
-  reason: string;
-}
+  export interface Proposed {
+    relay: string;
+    topic: string;
+    keyPair: KeyPair;
+  }
 
-export interface SessionProposed {
-  relay: string;
-  topic: string;
-  keyPair: KeyPair;
-}
+  export interface Proposal {
+    relay: string;
+    topic: string;
+    permissions: Rules;
+    peer: Peer;
+  }
 
-export interface SessionProposal {
-  relay: string;
-  topic: string;
-  permissions: SessionRules;
-  peer: SessionPeer;
-}
+  export interface Settled {
+    relay: string;
+    topic: string;
+    symKey: string;
+    keyPair: KeyPair;
+    peer: Peer;
+    state: State;
+    rules: Rules;
+  }
 
-export interface SessionSettled {
-  relay: string;
-  topic: string;
-  symKey: string;
-  keyPair: KeyPair;
-  peer: SessionPeer;
-  state: SessionState;
-  rules: SessionRules;
-}
+  export interface Peer {
+    publicKey: string;
+    metadata: Metadata;
+  }
 
-export interface SessionPeer {
-  publicKey: string;
-  metadata: SessionMetadata;
-}
+  export interface Metadata {
+    name: string;
+    description: string;
+    url: string;
+    icons: string[];
+  }
 
-export interface SessionMetadata {
-  name: string;
-  description: string;
-  url: string;
-  icons: string[];
-}
+  export interface State {
+    accounts: string[];
+  }
 
-export interface SessionState {
-  accounts: string[];
-}
+  export interface WriteAccess {
+    [key: string]: {
+      [publicKey: string]: boolean;
+    };
+  }
 
-export interface SessionWriteAccess {
-  [key: string]: {
-    [publicKey: string]: boolean;
-  };
-}
+  export interface Rules {
+    peer: WriteAccess;
+    state: WriteAccess;
+    jsonrpc: string[];
+  }
 
-export interface SessionRules {
-  peer: SessionWriteAccess;
-  state: SessionWriteAccess;
-  jsonrpc: string[];
-}
+  export interface Success {
+    topic: string;
+    relay: string;
+  }
+  export interface Failed {
+    reason: string;
+  }
 
-export interface SessionSuccess {
-  topic: string;
-  relay: string;
-}
-export interface SessionFailed {
-  reason: string;
-}
+  export type Outcome = Failed | Success;
 
-export type SessionOutcome = SessionFailed | SessionSuccess;
-
-export interface SessionResponded extends SessionProposal {
-  outcome: SessionOutcome;
+  export interface Responded extends Proposal {
+    outcome: Outcome;
+  }
 }
 
 export abstract class ISession extends ISequence<
-  SessionProposed,
-  SessionProposal,
-  SessionResponded,
-  SessionSettled,
-  SessionUpdate,
-  SessionCreateParams,
-  SessionRespondParams,
-  SessionUpdateParams,
-  SessionDeleteParams,
-  SessionProposeParams,
-  SessionSettleParams
+  SessionTypes.Proposed,
+  SessionTypes.Proposal,
+  SessionTypes.Responded,
+  SessionTypes.Settled,
+  SessionTypes.Update,
+  SessionTypes.CreateParams,
+  SessionTypes.RespondParams,
+  SessionTypes.UpdateParams,
+  SessionTypes.DeleteParams,
+  SessionTypes.ProposeParams,
+  SessionTypes.SettleParams
 > {}

@@ -1,25 +1,7 @@
 import { EventEmitter } from "events";
 
 import { Subscription } from "./subscription";
-import {
-  IClient,
-  ISession,
-  SessionProposal,
-  SessionProposed,
-  SessionResponded,
-  SessionSettled,
-  SessionProposeParams,
-  SessionRespondParams,
-  SessionSettleParams,
-  SessionDeleteParams,
-  MessageEvent,
-  SessionCreateParams,
-  DeletedEvent,
-  CreatedEvent,
-  SessionUpdateParams,
-  UpdatedEvent,
-  SessionUpdate,
-} from "../../types";
+import { IClient, ISession, SubscriptionEvent, SessionTypes } from "../../types";
 import { formatJsonRpcRequest, safeJsonStringify } from "../../utils";
 import {
   SESSION_JSONRPC,
@@ -31,9 +13,9 @@ import {
 import { KeyValue } from "./store";
 
 export class Session extends ISession {
-  public proposed: Subscription<SessionProposed>;
-  public responded: Subscription<SessionResponded>;
-  public settled: Subscription<SessionSettled>;
+  public proposed: Subscription<SessionTypes.Proposed>;
+  public responded: Subscription<SessionTypes.Responded>;
+  public settled: Subscription<SessionTypes.Settled>;
 
   protected events = new EventEmitter();
 
@@ -41,15 +23,15 @@ export class Session extends ISession {
 
   constructor(public client: IClient) {
     super(client);
-    this.proposed = new Subscription<SessionProposed>(client, {
+    this.proposed = new Subscription<SessionTypes.Proposed>(client, {
       name: this.context,
       status: SESSION_STATUS.proposed,
     });
-    this.responded = new Subscription<SessionResponded>(client, {
+    this.responded = new Subscription<SessionTypes.Responded>(client, {
       name: this.context,
       status: SESSION_STATUS.responded,
     });
-    this.settled = new Subscription<SessionSettled>(client, {
+    this.settled = new Subscription<SessionTypes.Settled>(client, {
       name: this.context,
       status: SESSION_STATUS.settled,
     });
@@ -66,26 +48,26 @@ export class Session extends ISession {
     return this.settled.length;
   }
 
-  get map(): KeyValue<SessionSettled> {
+  get map(): KeyValue<SessionTypes.Settled> {
     return this.settled.map;
   }
 
-  public async create(params?: SessionCreateParams): Promise<SessionSettled> {
+  public async create(params?: SessionTypes.CreateParams): Promise<SessionTypes.Settled> {
     // TODO: implement respond
-    return {} as SessionSettled;
+    return {} as SessionTypes.Settled;
   }
 
-  public async respond(params: SessionRespondParams): Promise<SessionResponded> {
+  public async respond(params: SessionTypes.RespondParams): Promise<SessionTypes.Responded> {
     // TODO: implement respond
-    return {} as SessionResponded;
+    return {} as SessionTypes.Responded;
   }
 
-  public async update(params: SessionUpdateParams): Promise<SessionSettled> {
+  public async update(params: SessionTypes.UpdateParams): Promise<SessionTypes.Settled> {
     // TODO: implement respond
-    return {} as SessionSettled;
+    return {} as SessionTypes.Settled;
   }
 
-  public async delete(params: SessionDeleteParams): Promise<void> {
+  public async delete(params: SessionTypes.DeleteParams): Promise<void> {
     this.settled.del(params.topic, params.reason);
   }
 
@@ -103,73 +85,86 @@ export class Session extends ISession {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected async propose(params?: SessionProposeParams): Promise<SessionProposal> {
+  protected async propose(params?: SessionTypes.ProposeParams): Promise<SessionTypes.Proposal> {
     // TODO: implement propose
-    return {} as SessionProposal;
+    return {} as SessionTypes.Proposal;
   }
 
-  protected async settle(params: SessionSettleParams): Promise<SessionSettled> {
+  protected async settle(params: SessionTypes.SettleParams): Promise<SessionTypes.Settled> {
     // TODO: implement settle
-    return {} as SessionSettled;
+    return {} as SessionTypes.Settled;
   }
 
-  protected async onResponse(messageEvent: MessageEvent): Promise<void> {
+  protected async onResponse(messageEvent: SubscriptionEvent.Message): Promise<void> {
     // TODO: implement onResponse
   }
 
-  protected async onAcknowledge(messageEvent: MessageEvent): Promise<void> {
+  protected async onAcknowledge(messageEvent: SubscriptionEvent.Message): Promise<void> {
     // TODO: implement onAcknowledge
   }
 
-  protected async onMessage(messageEvent: MessageEvent): Promise<void> {
+  protected async onMessage(messageEvent: SubscriptionEvent.Message): Promise<void> {
     this.events.emit(SESSION_EVENTS.message, messageEvent);
   }
 
-  protected async onUpdate(messageEvent: MessageEvent): Promise<void> {
+  protected async onUpdate(messageEvent: SubscriptionEvent.Message): Promise<void> {
     // TODO: implement onUpdate
   }
 
   protected async handleUpdate(
-    session: SessionSettled,
-    params: SessionUpdateParams,
+    session: SessionTypes.Settled,
+    params: SessionTypes.UpdateParams,
     fromPeer?: boolean,
-  ): Promise<SessionUpdate> {
+  ): Promise<SessionTypes.Update> {
     // TODO: implement handleUpdate
-    return {} as SessionUpdate;
+    return {} as SessionTypes.Update;
   }
 
   // ---------- Private ----------------------------------------------- //
 
   private registerEventListeners(): void {
     // Proposed Subscription Events
-    this.proposed.on(SUBSCRIPTION_EVENTS.message, (messageEvent: MessageEvent) =>
+    this.proposed.on(SUBSCRIPTION_EVENTS.message, (messageEvent: SubscriptionEvent.Message) =>
       this.onResponse(messageEvent),
     );
-    this.proposed.on(SUBSCRIPTION_EVENTS.created, (createdEvent: CreatedEvent<SessionProposed>) =>
-      this.events.emit(SESSION_EVENTS.proposed, createdEvent.subscription),
+    this.proposed.on(
+      SUBSCRIPTION_EVENTS.created,
+      (createdEvent: SubscriptionEvent.Created<SessionTypes.Proposed>) =>
+        this.events.emit(SESSION_EVENTS.proposed, createdEvent.subscription),
     );
     // Responded Subscription Events
-    this.responded.on(SUBSCRIPTION_EVENTS.message, (messageEvent: MessageEvent) =>
+    this.responded.on(SUBSCRIPTION_EVENTS.message, (messageEvent: SubscriptionEvent.Message) =>
       this.onAcknowledge(messageEvent),
     );
-    this.responded.on(SUBSCRIPTION_EVENTS.created, (createdEvent: CreatedEvent<SessionResponded>) =>
-      this.events.emit(SESSION_EVENTS.responded, createdEvent.subscription),
+    this.responded.on(
+      SUBSCRIPTION_EVENTS.created,
+      (createdEvent: SubscriptionEvent.Created<SessionTypes.Responded>) =>
+        this.events.emit(SESSION_EVENTS.responded, createdEvent.subscription),
     );
     // Settled Subscription Events
-    this.settled.on(SUBSCRIPTION_EVENTS.message, (messageEvent: MessageEvent) =>
+    this.settled.on(SUBSCRIPTION_EVENTS.message, (messageEvent: SubscriptionEvent.Message) =>
       this.onMessage(messageEvent),
     );
-    this.settled.on(SUBSCRIPTION_EVENTS.created, (createdEvent: CreatedEvent<SessionSettled>) =>
-      this.events.emit(SESSION_EVENTS.settled, createdEvent.subscription),
+    this.settled.on(
+      SUBSCRIPTION_EVENTS.created,
+      (createdEvent: SubscriptionEvent.Created<SessionTypes.Settled>) =>
+        this.events.emit(SESSION_EVENTS.settled, createdEvent.subscription),
     );
-    this.settled.on(SUBSCRIPTION_EVENTS.updated, (updatedEvent: UpdatedEvent<SessionSettled>) =>
-      this.events.emit(SESSION_EVENTS.updated, updatedEvent.subscription),
+    this.settled.on(
+      SUBSCRIPTION_EVENTS.updated,
+      (updatedEvent: SubscriptionEvent.Updated<SessionTypes.Settled>) =>
+        this.events.emit(SESSION_EVENTS.updated, updatedEvent.subscription),
     );
-    this.settled.on(SUBSCRIPTION_EVENTS.deleted, (deletedEvent: DeletedEvent<SessionSettled>) => {
-      const session = deletedEvent.subscription;
-      this.events.emit(SESSION_EVENTS.deleted, session);
-      const request = formatJsonRpcRequest(SESSION_JSONRPC.delete, { reason: deletedEvent.reason });
-      this.client.relay.publish(session.topic, safeJsonStringify(request), session.relay);
-    });
+    this.settled.on(
+      SUBSCRIPTION_EVENTS.deleted,
+      (deletedEvent: SubscriptionEvent.Deleted<SessionTypes.Settled>) => {
+        const session = deletedEvent.subscription;
+        this.events.emit(SESSION_EVENTS.deleted, session);
+        const request = formatJsonRpcRequest(SESSION_JSONRPC.delete, {
+          reason: deletedEvent.reason,
+        });
+        this.client.relay.publish(session.topic, safeJsonStringify(request), session.relay);
+      },
+    );
   }
 }

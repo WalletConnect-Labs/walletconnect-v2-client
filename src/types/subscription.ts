@@ -1,10 +1,33 @@
 import { KeyValue } from "../client/controllers";
 import { IClient } from "./client";
-import { IEvents, MessageEvent } from "./events";
+import { IEvents } from "./events";
 
 export interface SubscriptionContext {
   name: string;
   status: string;
+}
+
+export declare namespace SubscriptionEvent {
+  export interface Message {
+    topic: string;
+    message: string;
+  }
+
+  export interface Created<T> {
+    topic: string;
+    subscription: T;
+  }
+
+  export interface Updated<T> {
+    topic: string;
+    subscription: T;
+  }
+
+  export interface Deleted<T> {
+    topic: string;
+    subscription: T;
+    reason: string;
+  }
 }
 
 export abstract class ISubscription<T> extends IEvents {
@@ -28,5 +51,5 @@ export abstract class ISubscription<T> extends IEvents {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected abstract onMessage(messageEvent: MessageEvent): Promise<any>;
+  protected abstract onMessage(messageEvent: SubscriptionEvent.Message): Promise<any>;
 }

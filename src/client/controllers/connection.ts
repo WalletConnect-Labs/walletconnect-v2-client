@@ -2,27 +2,11 @@ import { EventEmitter } from "events";
 
 import {
   IClient,
-  ConnectionProposed,
-  ConnectionSettled,
-  ConnectionProposal,
   IConnection,
-  ConnectionProposeParams,
-  ConnectionRespondParams,
-  ConnectionSettleParams,
-  ConnectionDeleteParams,
-  ConnectionResponded,
-  MessageEvent,
-  ConnectionCreateParams,
-  CreatedEvent,
-  DeletedEvent,
   JsonRpcRequest,
-  JsonRpcResult,
-  ConnectionUpdateParams,
-  ConnectionState,
-  ConnectionPeer,
   JsonRpcPayload,
-  ConnectionMetadata,
-  ConnectionUpdate,
+  SubscriptionEvent,
+  ConnectionTypes,
 } from "../../types";
 import {
   generateKeyPair,
@@ -52,9 +36,9 @@ import { KeyValue } from "./store";
 import { Subscription } from "./subscription";
 
 export class Connection extends IConnection {
-  public proposed: Subscription<ConnectionProposed>;
-  public responded: Subscription<ConnectionResponded>;
-  public settled: Subscription<ConnectionSettled>;
+  public proposed: Subscription<ConnectionTypes.Proposed>;
+  public responded: Subscription<ConnectionTypes.Responded>;
+  public settled: Subscription<ConnectionTypes.Settled>;
 
   protected events = new EventEmitter();
 
@@ -62,15 +46,15 @@ export class Connection extends IConnection {
 
   constructor(public client: IClient) {
     super(client);
-    this.proposed = new Subscription<ConnectionProposed>(client, {
+    this.proposed = new Subscription<ConnectionTypes.Proposed>(client, {
       name: this.context,
       status: CONNECTION_STATUS.proposed,
     });
-    this.responded = new Subscription<ConnectionResponded>(client, {
+    this.responded = new Subscription<ConnectionTypes.Responded>(client, {
       name: this.context,
       status: CONNECTION_STATUS.responded,
     });
-    this.settled = new Subscription<ConnectionSettled>(client, {
+    this.settled = new Subscription<ConnectionTypes.Settled>(client, {
       name: this.context,
       status: CONNECTION_STATUS.settled,
     });
@@ -87,16 +71,16 @@ export class Connection extends IConnection {
     return this.settled.length;
   }
 
-  get map(): KeyValue<ConnectionSettled> {
+  get map(): KeyValue<ConnectionTypes.Settled> {
     return this.settled.map;
   }
 
-  public async create(params?: ConnectionCreateParams): Promise<ConnectionSettled> {
+  public async create(params?: ConnectionTypes.CreateParams): Promise<ConnectionTypes.Settled> {
     return new Promise(async (resolve, reject) => {
       const proposal = await this.propose(params);
-      this.proposed.on(SUBSCRIPTION_EVENTS.deleted, async (proposed: ConnectionProposed) => {
+      this.proposed.on(SUBSCRIPTION_EVENTS.deleted, async (proposed: ConnectionTypes.Proposed) => {
         if (proposed.topic !== proposal.topic) return;
-        const responded: ConnectionResponded = await this.responded.get(proposal.topic);
+        const responded: ConnectionTypes.Responded = await this.responded.get(proposal.topic);
         if (isConnectionFailed(responded.outcome)) {
           await this.responded.del(responded.topic, responded.outcome.reason);
           reject(new Error(responded.outcome.reason));
@@ -109,7 +93,7 @@ export class Connection extends IConnection {
     });
   }
 
-  public async respond(params: ConnectionRespondParams): Promise<ConnectionResponded> {
+  public async respond(params: ConnectionTypes.RespondParams): Promise<ConnectionTypes.Responded> {
     const { approved, proposal } = params;
     if (approved) {
       try {
@@ -124,7 +108,7 @@ export class Connection extends IConnection {
           },
         });
 
-        const responded: ConnectionResponded = {
+        const responded: ConnectionTypes.Responded = {
           ...proposal,
           outcome: connection,
         };
@@ -132,7 +116,7 @@ export class Connection extends IConnection {
         return responded;
       } catch (e) {
         const reason = e.message;
-        const responded: ConnectionResponded = {
+        const responded: ConnectionTypes.Responded = {
           ...proposal,
           outcome: { reason },
         };
@@ -140,7 +124,7 @@ export class Connection extends IConnection {
         return responded;
       }
     } else {
-      const responded: ConnectionResponded = {
+      const responded: ConnectionTypes.Responded = {
         ...proposal,
         outcome: { reason: CONNECTION_REASONS.not_approved },
       };
@@ -149,7 +133,7 @@ export class Connection extends IConnection {
     }
   }
 
-  public async update(params: ConnectionUpdateParams): Promise<ConnectionSettled> {
+  public async update(params: ConnectionTypes.UpdateParams): Promise<ConnectionTypes.Settled> {
     const connection = await this.settled.get(params.topic);
     const update = await this.handleUpdate(connection, params);
     const request = formatJsonRpcRequest(CONNECTION_JSONRPC.update, update);
@@ -157,7 +141,7 @@ export class Connection extends IConnection {
     return connection;
   }
 
-  public async delete(params: ConnectionDeleteParams): Promise<void> {
+  public async delete(params: ConnectionTypes.DeleteParams): Promise<void> {
     await this.settled.del(params.topic, params.reason);
   }
 
@@ -175,16 +159,18 @@ export class Connection extends IConnection {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected async propose(params?: ConnectionProposeParams): Promise<ConnectionProposal> {
+  protected async propose(
+    params?: ConnectionTypes.ProposeParams,
+  ): Promise<ConnectionTypes.Proposal> {
     const relay = params?.relay || this.client.relay.default;
-    const proposed: ConnectionProposed = {
+    const proposed: ConnectionTypes.Proposed = {
       relay,
       topic: generateRandomBytes32(),
       keyPair: generateKeyPair(),
     };
     await this.proposed.set(proposed.topic, proposed);
 
-    const proposal: ConnectionProposal = {
+    const proposal: ConnectionTypes.Proposal = {
       relay: proposed.relay,
       topic: proposed.topic,
       publicKey: proposed.keyPair.publicKey,
@@ -192,9 +178,9 @@ export class Connection extends IConnection {
     return proposal;
   }
 
-  protected async settle(params: ConnectionSettleParams): Promise<ConnectionSettled> {
+  protected async settle(params: ConnectionTypes.SettleParams): Promise<ConnectionTypes.Settled> {
     const symKey = deriveSharedKey(params.keyPair.privateKey, params.peer.publicKey);
-    const connection: ConnectionSettled = {
+    const connection: ConnectionTypes.Settled = {
       relay: params.relay,
       topic: await sha256(symKey),
       symKey,
@@ -210,7 +196,7 @@ export class Connection extends IConnection {
     return connection;
   }
 
-  protected async onResponse(messageEvent: MessageEvent): Promise<void> {
+  protected async onResponse(messageEvent: SubscriptionEvent.Message): Promise<void> {
     const { topic, message } = messageEvent;
     const request = safeJsonParse(message) as JsonRpcRequest;
     const proposed = await this.proposed.get(topic);
@@ -225,7 +211,7 @@ export class Connection extends IConnection {
       });
       const response = formatJsonRpcResult(request.id, true);
       this.client.relay.publish(topic, safeJsonStringify(response), proposed.relay);
-      const responded: ConnectionResponded = {
+      const responded: ConnectionTypes.Responded = {
         relay: proposed.relay,
         topic: proposed.topic,
         publicKey: proposed.keyPair.publicKey,
@@ -236,7 +222,7 @@ export class Connection extends IConnection {
       const reason = e.message;
       const response = formatJsonRpcError(request.id, reason);
       this.client.relay.publish(topic, safeJsonStringify(response), proposed.relay);
-      const responded: ConnectionResponded = {
+      const responded: ConnectionTypes.Responded = {
         relay: proposed.relay,
         topic: proposed.topic,
         publicKey: proposed.keyPair.publicKey,
@@ -247,7 +233,7 @@ export class Connection extends IConnection {
     await this.proposed.del(topic, CONNECTION_REASONS.responded);
   }
 
-  protected async onAcknowledge(messageEvent: MessageEvent): Promise<void> {
+  protected async onAcknowledge(messageEvent: SubscriptionEvent.Message): Promise<void> {
     const { topic, message } = messageEvent;
     const response = safeJsonParse(message);
     const responded = await this.responded.get(topic);
@@ -257,7 +243,7 @@ export class Connection extends IConnection {
     await this.responded.del(topic, CONNECTION_REASONS.acknowledged);
   }
 
-  protected async onMessage(messageEvent: MessageEvent): Promise<void> {
+  protected async onMessage(messageEvent: SubscriptionEvent.Message): Promise<void> {
     const payload = safeJsonParse(messageEvent.message) as JsonRpcPayload;
     if (typeof (payload as JsonRpcRequest).method !== "undefined") {
       const request = payload as JsonRpcRequest;
@@ -280,7 +266,7 @@ export class Connection extends IConnection {
     }
   }
 
-  protected async onUpdate(messageEvent: MessageEvent): Promise<void> {
+  protected async onUpdate(messageEvent: SubscriptionEvent.Message): Promise<void> {
     const request = safeJsonParse(messageEvent.message) as JsonRpcRequest;
     const connection = await this.settled.get(messageEvent.topic);
     try {
@@ -294,13 +280,13 @@ export class Connection extends IConnection {
   }
 
   protected async handleUpdate(
-    connection: ConnectionSettled,
-    params: ConnectionUpdateParams,
+    connection: ConnectionTypes.Settled,
+    params: ConnectionTypes.UpdateParams,
     fromPeer?: boolean,
-  ): Promise<ConnectionUpdate> {
-    let update: ConnectionUpdate;
+  ): Promise<ConnectionTypes.Update> {
+    let update: ConnectionTypes.Update;
     if (typeof params.state !== "undefined") {
-      const state = params.state as ConnectionState;
+      const state = params.state as ConnectionTypes.State;
       const publicKey = fromPeer ? connection.peer.publicKey : connection.keyPair.publicKey;
       for (const key of Object.keys(state)) {
         if (!connection.rules.state[key][publicKey]) {
@@ -310,7 +296,7 @@ export class Connection extends IConnection {
       }
       update = { state };
     } else if (typeof params.metadata !== "undefined") {
-      const metadata = params.metadata as ConnectionMetadata;
+      const metadata = params.metadata as ConnectionTypes.Metadata;
       if (fromPeer) {
         connection.peer.metadata = metadata;
       }
@@ -326,21 +312,21 @@ export class Connection extends IConnection {
 
   private registerEventListeners(): void {
     // Proposed Subscription Events
-    this.proposed.on(SUBSCRIPTION_EVENTS.message, (messageEvent: MessageEvent) =>
+    this.proposed.on(SUBSCRIPTION_EVENTS.message, (messageEvent: SubscriptionEvent.Message) =>
       this.onResponse(messageEvent),
     );
     this.proposed.on(
       SUBSCRIPTION_EVENTS.created,
-      (createdEvent: CreatedEvent<ConnectionProposed>) =>
+      (createdEvent: SubscriptionEvent.Created<ConnectionTypes.Proposed>) =>
         this.events.emit(CONNECTION_EVENTS.proposed, createdEvent.subscription),
     );
     // Responded Subscription Events
-    this.responded.on(SUBSCRIPTION_EVENTS.message, (messageEvent: MessageEvent) =>
+    this.responded.on(SUBSCRIPTION_EVENTS.message, (messageEvent: SubscriptionEvent.Message) =>
       this.onAcknowledge(messageEvent),
     );
     this.responded.on(
       SUBSCRIPTION_EVENTS.created,
-      (createdEvent: CreatedEvent<ConnectionResponded>) => {
+      (createdEvent: SubscriptionEvent.Created<ConnectionTypes.Responded>) => {
         const responded = createdEvent.subscription;
         this.events.emit("connect_responded", responded);
         const params = isConnectionFailed(responded.outcome)
@@ -351,12 +337,12 @@ export class Connection extends IConnection {
       },
     );
     // Settled Subscription Events
-    this.settled.on(SUBSCRIPTION_EVENTS.message, (messageEvent: MessageEvent) =>
+    this.settled.on(SUBSCRIPTION_EVENTS.message, (messageEvent: SubscriptionEvent.Message) =>
       this.onMessage(messageEvent),
     );
     this.settled.on(
       SUBSCRIPTION_EVENTS.created,
-      (createdEvent: CreatedEvent<ConnectionSettled>) => {
+      (createdEvent: SubscriptionEvent.Created<ConnectionTypes.Settled>) => {
         this.events.emit(CONNECTION_EVENTS.settled, createdEvent.subscription);
         if (typeof createdEvent.subscription.peer.metadata === "undefined") {
           const metadata = getConnectionMetadata();
@@ -367,7 +353,7 @@ export class Connection extends IConnection {
     );
     this.settled.on(
       SUBSCRIPTION_EVENTS.deleted,
-      (deletedEvent: DeletedEvent<ConnectionSettled>) => {
+      (deletedEvent: SubscriptionEvent.Deleted<ConnectionTypes.Settled>) => {
         const connection = deletedEvent.subscription;
         this.events.emit(CONNECTION_EVENTS.deleted, connection);
         const request = formatJsonRpcRequest(CONNECTION_JSONRPC.delete, {

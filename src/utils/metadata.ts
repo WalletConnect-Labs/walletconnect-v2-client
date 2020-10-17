@@ -1,7 +1,7 @@
 import * as detectEnv from "detect-browser";
 import * as WindowMetadata from "window-metadata";
 
-import { ConnectionMetadata, SessionMetadata } from "../types";
+import { ConnectionTypes, SessionTypes } from "../types";
 
 export function getConnectionType(type: string): string {
   switch (type) {
@@ -16,7 +16,7 @@ export function getConnectionType(type: string): string {
   }
 }
 
-export function getConnectionMetadata(): ConnectionMetadata | null {
+export function getConnectionMetadata(): ConnectionTypes.Metadata | null {
   const env = detectEnv.detect();
   if (env === null) return null;
   if (env.type === "bot" || env.type === "bot-device") return null;
@@ -28,6 +28,6 @@ export function getConnectionMetadata(): ConnectionMetadata | null {
   };
 }
 
-export function getSessionMetadata(): SessionMetadata | null {
+export function getSessionMetadata(): SessionTypes.Metadata | null {
   return WindowMetadata.getWindowMetadata();
 }
