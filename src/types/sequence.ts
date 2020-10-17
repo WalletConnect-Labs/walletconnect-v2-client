@@ -66,5 +66,9 @@ export abstract class ISequence<
   // callback for state update requests
   protected abstract onUpdate(messageEvent: MessageEvent): Promise<void>;
   // validates and processes state udpates
-  protected abstract handleUpdate(settled: Settled, params: UpdateParams): Promise<Update>;
+  protected abstract handleUpdate(
+    settled: Settled,
+    params: UpdateParams,
+    fromPeer?: boolean,
+  ): Promise<Update>;
 }

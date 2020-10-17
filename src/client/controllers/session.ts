@@ -132,6 +132,7 @@ export class Session extends ISession {
   protected async handleUpdate(
     session: SessionSettled,
     params: SessionUpdateParams,
+    fromPeer?: boolean,
   ): Promise<SessionUpdate> {
     // TODO: implement handleUpdate
     return {} as SessionUpdate;

@@ -284,7 +284,7 @@ export class Connection extends IConnection {
     const request = safeJsonParse(messageEvent.message) as JsonRpcRequest;
     const connection = await this.settled.get(messageEvent.topic);
     try {
-      await this.handleUpdate(connection, request.params);
+      await this.handleUpdate(connection, request.params, true);
       const response = formatJsonRpcResult(request.id, true);
       this.client.relay.publish(connection.topic, safeJsonStringify(response), connection.relay);
     } catch (e) {
@@ -296,22 +296,24 @@ export class Connection extends IConnection {
   protected async handleUpdate(
     connection: ConnectionSettled,
     params: ConnectionUpdateParams,
+    fromPeer?: boolean,
   ): Promise<ConnectionUpdate> {
     let update: ConnectionUpdate;
     if (typeof params.state !== "undefined") {
       const state = params.state as ConnectionState;
+      const publicKey = fromPeer ? connection.peer.publicKey : connection.keyPair.publicKey;
       for (const key of Object.keys(state)) {
-        if (!connection.rules.state[key][connection.peer.publicKey]) {
-          throw new Error(
-            `Unauthorized state update for key ${key} by ${connection.peer.publicKey}`,
-          );
+        if (!connection.rules.state[key][publicKey]) {
+          throw new Error(`Unauthorized state update for key: ${key}`);
         }
         connection.state[key] = state[key];
       }
       update = { state };
     } else if (typeof params.metadata !== "undefined") {
       const metadata = params.metadata as ConnectionMetadata;
-      connection.peer.metadata = metadata;
+      if (fromPeer) {
+        connection.peer.metadata = metadata;
+      }
       update = { metadata };
     } else {
       throw new Error(`Invalid ${this.context} update request params`);
