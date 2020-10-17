@@ -11,6 +11,10 @@ export function generateKeyPair(): KeyPair {
   };
 }
 
+export function generateRandomBytes32(): string {
+  return encUtils.bufferToHex(eccryptoJS.randomBytes(32));
+}
+
 export function deriveSharedKey(privateKeyA: string, publicKeyB: string): string {
   return encUtils.bufferToHex(
     eccryptoJS.derive(encUtils.hexToBuffer(privateKeyA), encUtils.hexToBuffer(publicKeyB)),

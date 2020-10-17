@@ -1,16 +1,31 @@
+import { KeyValue } from "../client/controllers";
 import { IClient } from "./client";
 import { IEvents, MessageEvent } from "./events";
 import { ISubscription } from "./subscription";
 
-export abstract class ISequence extends IEvents {
+export abstract class ISequence<
+  Proposed,
+  Proposal,
+  Responded,
+  Settled,
+  Update,
+  CreateParams,
+  RespondParams,
+  UpdateParams,
+  DeleteParams,
+  ProposeParams,
+  SettleParams
+> extends IEvents {
   // proposed subscriptions
-  public abstract proposed: ISubscription<any>;
+  public abstract proposed: ISubscription<Proposed>;
   // responded subscriptions
-  public abstract responded: ISubscription<any>;
+  public abstract responded: ISubscription<Responded>;
   // settled subscriptions
-  public abstract settled: ISubscription<any>;
-  // returns settled connections length
+  public abstract settled: ISubscription<Settled>;
+  // returns settled subscriptions length
   public abstract readonly length: number;
+  // returns settled subscriptions map
+  public abstract readonly map: KeyValue<Settled>;
   // describes sequence context
   protected abstract context: string;
 
@@ -27,23 +42,29 @@ export abstract class ISequence extends IEvents {
   public abstract off(event: string, listener: any): void;
 
   // called by proposer
-  public abstract create(params?: any): Promise<any>;
+  public abstract create(params?: CreateParams): Promise<Settled>;
   // called by responder
-  public abstract respond(params?: any): Promise<any>;
+  public abstract respond(params: RespondParams): Promise<Responded>;
+  // called by either to update state
+  public abstract update(params: UpdateParams): Promise<Settled>;
   // called by either to terminate
-  public abstract delete(params?: any): Promise<any>;
+  public abstract delete(params: DeleteParams): Promise<void>;
 
   // ---------- Protected ----------------------------------------------- //
 
   // called by proposer (internally)
-  protected abstract propose(params?: any): Promise<any>;
+  protected abstract propose(params?: ProposeParams): Promise<Proposal>;
   // called by both (internally)
-  protected abstract settle(params?: any): Promise<any>;
+  protected abstract settle(params: SettleParams): Promise<Settled>;
 
   // callback for proposed subscriptions
-  protected abstract onResponse(messageEvent: MessageEvent): Promise<any>;
+  protected abstract onResponse(messageEvent: MessageEvent): Promise<void>;
   // callback for responded subscriptions
-  protected abstract onAcknowledge(messageEvent: MessageEvent): Promise<any>;
+  protected abstract onAcknowledge(messageEvent: MessageEvent): Promise<void>;
   // callback for settled subscriptions
-  protected abstract onMessage(messageEvent: MessageEvent): Promise<any>;
+  protected abstract onMessage(messageEvent: MessageEvent): Promise<void>;
+  // callback for state update requests
+  protected abstract onUpdate(messageEvent: MessageEvent): Promise<void>;
+  // validates and processes state udpates
+  protected abstract handleUpdate(settled: Settled, params: UpdateParams): Promise<Update>;
 }

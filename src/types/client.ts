@@ -12,14 +12,14 @@ export interface ClientOptions {
 export interface ClientConnectParams {
   app: {
     id: string;
-    meta: any;
+    metadata: any;
   };
 }
 
 export interface ClientDisconnectParams {
   app: {
     id: string;
-    meta: any;
+    metadata: any;
   };
 }
 

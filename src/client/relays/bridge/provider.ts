@@ -1,6 +1,7 @@
 import { EventEmitter } from "events";
 
 import { JsonRpcRequest, IJsonRpcProvider } from "../../../types";
+import { safeJsonStringify } from "../../../utils";
 
 const WS =
   // @ts-ignore
@@ -55,7 +56,7 @@ export class BridgeProvider extends IJsonRpcProvider {
       if (typeof this.socket === "undefined") {
         throw new Error("Socket is not connected");
       }
-      this.socket.send(JSON.stringify(payload));
+      this.socket.send(safeJsonStringify(payload));
     });
   }
 

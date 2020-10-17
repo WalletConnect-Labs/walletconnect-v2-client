@@ -2,6 +2,7 @@ import { EventEmitter } from "events";
 
 import {
   CreatedEvent,
+  UpdatedEvent,
   DeletedEvent,
   IClient,
   ISubscription,
@@ -9,6 +10,7 @@ import {
   SubscriptionContext,
 } from "../../types";
 import { mapToObj, objToMap } from "../../utils";
+import { SUBSCRIPTION_EVENTS } from "../constants";
 import { KeyValue } from "./store";
 
 export class Subscription<T = any> extends ISubscription<T> {
@@ -34,13 +36,18 @@ export class Subscription<T = any> extends ISubscription<T> {
   }
 
   public async set(topic: string, subscription: T): Promise<void> {
-    this.subscriptions.set(topic, subscription);
-    this.events.emit("created", { topic, subscription } as CreatedEvent<T>);
-    this.client.relay.subscribe(
-      topic,
-      (message: string) => this.onMessage({ topic, message }),
-      (subscription as any).relay,
-    );
+    if (this.subscriptions.has(topic)) {
+      this.subscriptions.set(topic, subscription);
+      this.events.emit(SUBSCRIPTION_EVENTS.updated, { topic, subscription } as UpdatedEvent<T>);
+    } else {
+      this.subscriptions.set(topic, subscription);
+      this.events.emit(SUBSCRIPTION_EVENTS.created, { topic, subscription } as CreatedEvent<T>);
+      this.client.relay.subscribe(
+        topic,
+        (message: string) => this.onMessage({ topic, message }),
+        (subscription as any).relay,
+      );
+    }
   }
 
   public async get(topic: string): Promise<T> {
@@ -60,7 +67,9 @@ export class Subscription<T = any> extends ISubscription<T> {
       (message: string) => this.onMessage({ topic, message }),
       (subscription as any).relay,
     );
-    this.events.emit("deleted", { topic, subscription, reason } as DeletedEvent<T>);
+    this.events.emit(SUBSCRIPTION_EVENTS.deleted, { topic, subscription, reason } as DeletedEvent<
+      T
+    >);
   }
 
   public on(event: string, listener: any): void {
@@ -78,7 +87,7 @@ export class Subscription<T = any> extends ISubscription<T> {
   // ---------- Protected ----------------------------------------------- //
 
   protected async onMessage(messageEvent: MessageEvent) {
-    this.events.emit("message", messageEvent);
+    this.events.emit(SUBSCRIPTION_EVENTS.message, messageEvent);
   }
 
   // ---------- Private ----------------------------------------------- //
@@ -104,7 +113,8 @@ export class Subscription<T = any> extends ISubscription<T> {
   }
 
   private registerEventListeners(): void {
-    this.events.on("created", () => this.persist());
-    this.events.on("deleted", () => this.persist());
+    this.events.on(SUBSCRIPTION_EVENTS.created, () => this.persist());
+    this.events.on(SUBSCRIPTION_EVENTS.updated, () => this.persist());
+    this.events.on(SUBSCRIPTION_EVENTS.deleted, () => this.persist());
   }
 }

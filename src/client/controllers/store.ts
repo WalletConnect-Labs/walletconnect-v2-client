@@ -13,7 +13,7 @@ export class Store implements IStore {
     return;
   }
 
-  public async get<T = any>(key: string): Promise<T> {
+  public async get<T = any>(key: string): Promise<T | undefined> {
     return {} as any;
   }
 

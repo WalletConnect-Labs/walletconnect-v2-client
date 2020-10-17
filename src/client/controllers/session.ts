@@ -16,8 +16,19 @@ import {
   SessionCreateParams,
   DeletedEvent,
   CreatedEvent,
+  SessionUpdateParams,
+  UpdatedEvent,
+  SessionUpdate,
 } from "../../types";
-import { formatJsonRpcRequest } from "../../utils";
+import { formatJsonRpcRequest, safeJsonStringify } from "../../utils";
+import {
+  SESSION_JSONRPC,
+  SUBSCRIPTION_EVENTS,
+  SESSION_EVENTS,
+  SESSION_STATUS,
+  CONNECTION_CONTEXT,
+} from "../constants";
+import { KeyValue } from "./store";
 
 export class Session extends ISession {
   public proposed: Subscription<SessionProposed>;
@@ -26,21 +37,21 @@ export class Session extends ISession {
 
   protected events = new EventEmitter();
 
-  protected context = "session";
+  protected context = CONNECTION_CONTEXT;
 
   constructor(public client: IClient) {
     super(client);
     this.proposed = new Subscription<SessionProposed>(client, {
       name: this.context,
-      status: "proposed",
+      status: SESSION_STATUS.proposed,
     });
     this.responded = new Subscription<SessionResponded>(client, {
       name: this.context,
-      status: "responded",
+      status: SESSION_STATUS.responded,
     });
     this.settled = new Subscription<SessionSettled>(client, {
       name: this.context,
-      status: "settled",
+      status: SESSION_STATUS.settled,
     });
     this.registerEventListeners();
   }
@@ -55,6 +66,10 @@ export class Session extends ISession {
     return this.settled.length;
   }
 
+  get map(): KeyValue<SessionSettled> {
+    return this.settled.map;
+  }
+
   public async create(params?: SessionCreateParams): Promise<SessionSettled> {
     // TODO: implement respond
     return {} as SessionSettled;
@@ -63,6 +78,11 @@ export class Session extends ISession {
   public async respond(params: SessionRespondParams): Promise<SessionResponded> {
     // TODO: implement respond
     return {} as SessionResponded;
+  }
+
+  public async update(params: SessionUpdateParams): Promise<SessionSettled> {
+    // TODO: implement respond
+    return {} as SessionSettled;
   }
 
   public async delete(params: SessionDeleteParams): Promise<void> {
@@ -101,33 +121,54 @@ export class Session extends ISession {
     // TODO: implement onAcknowledge
   }
 
-  protected async onMessage(messageEvent: MessageEvent) {
-    this.events.emit("message", messageEvent);
+  protected async onMessage(messageEvent: MessageEvent): Promise<void> {
+    this.events.emit(SESSION_EVENTS.message, messageEvent);
+  }
+
+  protected async onUpdate(messageEvent: MessageEvent): Promise<void> {
+    // TODO: implement onUpdate
+  }
+
+  protected async handleUpdate(
+    session: SessionSettled,
+    params: SessionUpdateParams,
+  ): Promise<SessionUpdate> {
+    // TODO: implement handleUpdate
+    return {} as SessionUpdate;
   }
 
   // ---------- Private ----------------------------------------------- //
 
   private registerEventListeners(): void {
     // Proposed Subscription Events
-    this.proposed.on("message", (messageEvent: MessageEvent) => this.onResponse(messageEvent));
-    this.proposed.on("created", (createdEvent: CreatedEvent<SessionProposed>) =>
-      this.events.emit("session_proposed", createdEvent.subscription),
+    this.proposed.on(SUBSCRIPTION_EVENTS.message, (messageEvent: MessageEvent) =>
+      this.onResponse(messageEvent),
+    );
+    this.proposed.on(SUBSCRIPTION_EVENTS.created, (createdEvent: CreatedEvent<SessionProposed>) =>
+      this.events.emit(SESSION_EVENTS.proposed, createdEvent.subscription),
     );
     // Responded Subscription Events
-    this.responded.on("message", (messageEvent: MessageEvent) => this.onAcknowledge(messageEvent));
-    this.responded.on("created", (createdEvent: CreatedEvent<SessionResponded>) =>
-      this.events.emit("session_responded", createdEvent.subscription),
+    this.responded.on(SUBSCRIPTION_EVENTS.message, (messageEvent: MessageEvent) =>
+      this.onAcknowledge(messageEvent),
+    );
+    this.responded.on(SUBSCRIPTION_EVENTS.created, (createdEvent: CreatedEvent<SessionResponded>) =>
+      this.events.emit(SESSION_EVENTS.responded, createdEvent.subscription),
     );
     // Settled Subscription Events
-    this.settled.on("message", (messageEvent: MessageEvent) => this.onMessage(messageEvent));
-    this.settled.on("created", (createdEvent: CreatedEvent<SessionSettled>) =>
-      this.events.emit("session_settled", createdEvent.subscription),
+    this.settled.on(SUBSCRIPTION_EVENTS.message, (messageEvent: MessageEvent) =>
+      this.onMessage(messageEvent),
     );
-    this.settled.on("deleted", (deletedEvent: DeletedEvent<SessionSettled>) => {
+    this.settled.on(SUBSCRIPTION_EVENTS.created, (createdEvent: CreatedEvent<SessionSettled>) =>
+      this.events.emit(SESSION_EVENTS.settled, createdEvent.subscription),
+    );
+    this.settled.on(SUBSCRIPTION_EVENTS.updated, (updatedEvent: UpdatedEvent<SessionSettled>) =>
+      this.events.emit(SESSION_EVENTS.updated, updatedEvent.subscription),
+    );
+    this.settled.on(SUBSCRIPTION_EVENTS.deleted, (deletedEvent: DeletedEvent<SessionSettled>) => {
       const session = deletedEvent.subscription;
-      this.events.emit("session_deleted", session);
-      const request = formatJsonRpcRequest("wc_deleteConnection", { reason: deletedEvent.reason });
-      this.client.relay.publish(session.topic, JSON.stringify(request), session.relay);
+      this.events.emit(SESSION_EVENTS.deleted, session);
+      const request = formatJsonRpcRequest(SESSION_JSONRPC.delete, { reason: deletedEvent.reason });
+      this.client.relay.publish(session.topic, safeJsonStringify(request), session.relay);
     });
   }
 }

@@ -2,9 +2,10 @@ import { EventEmitter } from "events";
 
 import { Relays } from "../relays";
 import { RelayUserOptions, RelayClients, IRelay } from "../../types";
+import { DEFAULT_RELAY } from "../constants";
 
 export class Relay extends IRelay {
-  public default = "bridge";
+  public default = DEFAULT_RELAY;
   public clients: RelayClients = {};
 
   protected events = new EventEmitter();
@@ -14,7 +15,7 @@ export class Relay extends IRelay {
     if (Object.keys(opts)) {
       this.assertRelayOpts(opts);
     }
-    this.default = opts.default || "bridge";
+    this.default = opts.default || DEFAULT_RELAY;
     Object.keys(Relays).forEach(name => {
       const RelayClient = Relays[name];
       this.clients[name] = new RelayClient(opts[name]);

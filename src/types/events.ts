@@ -10,6 +10,11 @@ export interface CreatedEvent<T> {
   subscription: T;
 }
 
+export interface UpdatedEvent<T> {
+  topic: string;
+  subscription: T;
+}
+
 export interface DeletedEvent<T> {
   topic: string;
   subscription: T;

@@ -30,8 +30,8 @@ wc_request = {
 
 sessionProposal = {
     proposer: <DID>,
-    transport: {
-        type: "bridge",
+    relay: {
+        name: "bridge",
         params: {
             pubKey: <PubKey>
         }
@@ -40,7 +40,7 @@ sessionProposal = {
         operations: {
             jsonrpc: [methods],
         },
-        disclosure: {
+        state: {
             blockchainAccountIds: [chainIds]
         }
     },
@@ -77,18 +77,15 @@ if (clientB.supports(wc_request.permissions.operations.jsonrpc)) {
 
     sessionResponse = {
         responder: <DID>,
-        transport: {
-            type: "bridge",
+        relay: {
+            name: "bridge",
             params: {
                 pubKey: <PubKey>
             }
         },
         response: {
-            disclosure: {
-                blockchainAccountIds:[{
-                    accountsIDs,
-                    signingCapabilities
-                }]
+            state: {
+                blockchainAccountIds: [accountIds]
             }
         }
     }

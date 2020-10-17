@@ -1,8 +1,6 @@
-import { IClient } from "./client";
 import { ISequence } from "./sequence";
-import { ISubscription } from "./subscription";
 import { KeyPair } from "./crypto";
-import { MessageEvent } from "./events";
+
 export interface SessionProposeParams {
   relay: string;
 }
@@ -15,9 +13,17 @@ export interface SessionRespondParams {
 }
 export interface SessionSettleParams {
   relay: string;
-  privateKey: string;
-  publicKey: string;
+  peer: SessionPeer;
+  keyPair: KeyPair;
 }
+
+export interface SessionUpdateParams {
+  topic: string;
+  state?: SessionState;
+  metadata?: SessionMetadata;
+}
+
+export type SessionUpdate = { state: SessionState } | { metadata: SessionMetadata };
 export interface SessionDeleteParams {
   topic: string;
   reason: string;
@@ -32,23 +38,23 @@ export interface SessionProposed {
 export interface SessionProposal {
   relay: string;
   topic: string;
-  publicKey: string;
+  permissions: SessionRules;
+  peer: SessionPeer;
 }
 
 export interface SessionSettled {
   relay: string;
   topic: string;
   symKey: string;
+  keyPair: KeyPair;
+  peer: SessionPeer;
+  state: SessionState;
+  rules: SessionRules;
 }
 
-export interface SessionFailed {
-  reason: string;
-}
-
-export type SessionOutcome = SessionFailed | SessionSettled;
-
-export interface SessionResponded extends SessionProposal {
-  outcome: SessionOutcome;
+export interface SessionPeer {
+  publicKey: string;
+  metadata: SessionMetadata;
 }
 
 export interface SessionMetadata {
@@ -58,25 +64,46 @@ export interface SessionMetadata {
   icons: string[];
 }
 
-export abstract class ISession extends ISequence {
-  public abstract proposed: ISubscription<SessionProposed>;
-  public abstract responded: ISubscription<SessionResponded>;
-  public abstract settled: ISubscription<SessionSettled>;
-
-  constructor(public client: IClient) {
-    super(client);
-  }
-
-  public abstract create(params?: SessionCreateParams): Promise<SessionSettled>;
-  public abstract respond(params: SessionRespondParams): Promise<SessionResponded>;
-  public abstract delete(params: SessionDeleteParams): Promise<void>;
-
-  // ---------- Protected ----------------------------------------------- //
-
-  protected abstract propose(params?: SessionProposeParams): Promise<SessionProposal>;
-  protected abstract settle(params: SessionSettleParams): Promise<SessionSettled>;
-
-  protected abstract onResponse(messageEvent: MessageEvent): Promise<void>;
-  protected abstract onAcknowledge(messageEvent: MessageEvent): Promise<void>;
-  protected abstract onMessage(messageEvent: MessageEvent): Promise<void>;
+export interface SessionState {
+  accounts: string[];
 }
+
+export interface SessionWriteAccess {
+  [key: string]: {
+    [publicKey: string]: boolean;
+  };
+}
+
+export interface SessionRules {
+  peer: SessionWriteAccess;
+  state: SessionWriteAccess;
+  jsonrpc: string[];
+}
+
+export interface SessionSuccess {
+  topic: string;
+  relay: string;
+}
+export interface SessionFailed {
+  reason: string;
+}
+
+export type SessionOutcome = SessionFailed | SessionSuccess;
+
+export interface SessionResponded extends SessionProposal {
+  outcome: SessionOutcome;
+}
+
+export abstract class ISession extends ISequence<
+  SessionProposed,
+  SessionProposal,
+  SessionResponded,
+  SessionSettled,
+  SessionUpdate,
+  SessionCreateParams,
+  SessionRespondParams,
+  SessionUpdateParams,
+  SessionDeleteParams,
+  SessionProposeParams,
+  SessionSettleParams
+> {}

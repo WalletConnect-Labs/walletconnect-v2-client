@@ -14,6 +14,7 @@ import {
 } from "../types";
 import { formatUri } from "../utils";
 import { timeStamp } from "console";
+import { CONNECTION_EVENTS } from "./constants";
 
 export class Client extends IClient {
   public readonly protocol = "wc";
@@ -58,7 +59,7 @@ export class Client extends IClient {
   public async connect(params: ClientConnectParams) {
     let connection: ConnectionSettled;
     if (!this.connection.length) {
-      this.connection.on("connection_proposed", (proposed: ConnectionProposed) => {
+      this.connection.on(CONNECTION_EVENTS.proposed, (proposed: ConnectionProposed) => {
         const uri = formatUri(this.protocol, this.version, proposed.topic, {
           relay: proposed.topic,
           publicKey: proposed.keyPair.publicKey,
@@ -68,7 +69,7 @@ export class Client extends IClient {
       connection = await this.connection.create();
     } else {
       // TODO: display connections to be selected
-      // this.events.emit("show_connections", { connections: this.connections.settled.map })
+      // this.events.emit("show_connections", { connections: this.connections.map })
       //
       // (temporarily let's just select the first one)
       //
