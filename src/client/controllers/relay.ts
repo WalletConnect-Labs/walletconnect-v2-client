@@ -1,8 +1,16 @@
 import { EventEmitter } from "events";
 
 import { Relays } from "../relays";
-import { RelayUserOptions, RelayClients, IRelay } from "../../types";
+import {
+  RelayUserOptions,
+  RelayPublishOptions,
+  RelaySubscribeOptions,
+  RelayClients,
+  IRelay,
+  JsonRpcPayload,
+} from "../../types";
 import { DEFAULT_RELAY } from "../constants";
+import { encrypt, decrypt, safeJsonParse, safeJsonStringify } from "../../utils";
 
 export class Relay extends IRelay {
   public default = DEFAULT_RELAY;
@@ -26,20 +34,57 @@ export class Relay extends IRelay {
     await Promise.all(Object.keys(this.clients).map(name => this.clients[name].connect()));
   }
 
-  public publish(topic: string, message: string, relay = this.default): any {
+  public publish(topic: string, payload: JsonRpcPayload, opts?: RelayPublishOptions): any {
+    const relay = opts?.relay || this.default;
+    const message = safeJsonStringify(
+      opts?.encrypt
+        ? encrypt({
+            ...opts.encrypt,
+            message: safeJsonStringify(payload),
+          })
+        : payload,
+    );
     this.clients[relay].publish(topic, message);
   }
 
-  public subscribe(topic: string, listener: (message: string) => void, relay = this.default): any {
-    this.clients[relay].subscribe(topic, listener);
+  public subscribe(
+    topic: string,
+    listener: (payload: JsonRpcPayload) => void,
+    opts?: RelaySubscribeOptions,
+  ): any {
+    const relay = opts?.relay || this.default;
+    this.clients[relay].subscribe(topic, (message: string) => {
+      const json = safeJsonParse(message);
+      const payload = opts?.decrypt
+        ? safeJsonParse(
+            decrypt({
+              ...opts.decrypt,
+              encrypted: json,
+            }),
+          )
+        : json;
+      listener(payload);
+    });
   }
 
   public unsubscribe(
     topic: string,
-    listener: (message: string) => void,
-    relay = this.default,
+    listener: (payload: JsonRpcPayload) => void,
+    opts?: RelaySubscribeOptions,
   ): any {
-    this.clients[relay].unsubscribe(topic, listener);
+    const relay = opts?.relay || this.default;
+    this.clients[relay].unsubscribe(topic, (message: string) => {
+      const json = safeJsonParse(message);
+      const payload = opts?.decrypt
+        ? safeJsonParse(
+            decrypt({
+              ...opts.decrypt,
+              encrypted: json,
+            }),
+          )
+        : json;
+      listener(payload);
+    });
   }
 
   public on(event: string, listener: any): void {

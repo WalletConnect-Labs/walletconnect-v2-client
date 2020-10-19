@@ -3,16 +3,18 @@ import { EventEmitter } from "events";
 import {
   IClient,
   ISubscription,
-  SubscriptionEvent,
+  JsonRpcPayload,
   SubscriptionContext,
-  SubscriptionTracker,
+  SubscriptionEntries,
+  SubscriptionEvent,
+  SubscriptionOptions,
+  SubscriptionParams,
 } from "../../types";
 import { mapToObj, objToMap } from "../../utils";
 import { SUBSCRIPTION_EVENTS } from "../constants";
-import { KeyValue } from "./store";
 
 export class Subscription<Data = any> extends ISubscription<Data> {
-  public subscriptions = new Map<string, SubscriptionTracker<Data>>();
+  public subscriptions = new Map<string, SubscriptionParams<Data>>();
 
   public events = new EventEmitter();
 
@@ -29,51 +31,54 @@ export class Subscription<Data = any> extends ISubscription<Data> {
     return this.subscriptions.size;
   }
 
-  get entries(): KeyValue<SubscriptionTracker<Data>> {
-    return mapToObj<SubscriptionTracker<Data>>(this.subscriptions);
+  get entries(): SubscriptionEntries<Data> {
+    return mapToObj<SubscriptionParams<Data>>(this.subscriptions);
   }
 
-  public async set(topic: string, relay: string, data: Data): Promise<void> {
+  public async set(topic: string, data: Data, opts: SubscriptionOptions): Promise<void> {
     if (this.subscriptions.has(topic)) {
-      this.subscriptions.set(topic, { topic, relay, data });
-      this.events.emit(SUBSCRIPTION_EVENTS.updated, { topic, data } as SubscriptionEvent.Updated<
-        Data
-      >);
+      this.update(topic, data);
     } else {
-      this.subscriptions.set(topic, { topic, relay, data });
+      if (this.context.encrypted && typeof opts.decrypt === "undefined") {
+        throw new Error(`Decrypt params required for ${this.context.status} ${this.context.name}`);
+      }
+      this.subscriptions.set(topic, { topic, data, opts });
       this.events.emit(SUBSCRIPTION_EVENTS.created, {
         topic,
         data,
       } as SubscriptionEvent.Created<Data>);
       this.client.relay.subscribe(
         topic,
-        (message: string) => this.onMessage({ topic, message }),
-        relay,
+        (payload: JsonRpcPayload) => this.onMessage({ topic, payload }),
+        opts,
       );
     }
   }
 
   public async get(topic: string): Promise<Data> {
-    const subscription = this.subscriptions.get(topic);
-    if (!subscription) {
-      throw new Error(
-        `No matching ${this.context.status} ${this.context.name} with topic: ${topic}`,
-      );
-    }
+    const subscription = await this.getSubscription(topic);
     return subscription.data;
   }
 
-  public async del(topic: string, reason: string): Promise<void> {
-    const subscription = this.subscriptions.get(topic);
-    if (!subscription) {
-      throw new Error(
-        `No matching ${this.context.status} ${this.context.name} with topic: ${topic}`,
-      );
-    }
+  public async update(topic: string, update: Partial<Data>): Promise<void> {
+    const subscription = await this.getSubscription(topic);
+    const data = { ...subscription.data, ...update };
+    this.subscriptions.set(topic, {
+      ...subscription,
+      topic,
+      data,
+    });
+    this.events.emit(SUBSCRIPTION_EVENTS.updated, { topic, data } as SubscriptionEvent.Updated<
+      Data
+    >);
+  }
+
+  public async delete(topic: string, reason: string): Promise<void> {
+    const subscription = await this.getSubscription(topic);
     this.client.relay.unsubscribe(
       topic,
-      (message: string) => this.onMessage({ topic, message }),
-      subscription.relay,
+      (payload: JsonRpcPayload) => this.onMessage({ topic, payload }),
+      { relay: subscription.opts.relay, decrypt: subscription.opts.decrypt },
     );
     this.events.emit(SUBSCRIPTION_EVENTS.deleted, {
       topic,
@@ -96,21 +101,31 @@ export class Subscription<Data = any> extends ISubscription<Data> {
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected async onMessage(messageEvent: SubscriptionEvent.Message) {
-    this.events.emit(SUBSCRIPTION_EVENTS.message, messageEvent);
+  protected async onMessage(payloadEvent: SubscriptionEvent.Payload) {
+    this.events.emit(SUBSCRIPTION_EVENTS.payload, payloadEvent);
   }
 
   // ---------- Private ----------------------------------------------- //
 
+  private async getSubscription(topic: string): Promise<SubscriptionParams<Data>> {
+    const subscription = this.subscriptions.get(topic);
+    if (!subscription) {
+      throw new Error(
+        `No matching ${this.context.status} ${this.context.name} with topic: ${topic}`,
+      );
+    }
+    return subscription;
+  }
+
   private async persist() {
-    await this.client.store.set<KeyValue<SubscriptionTracker<Data>>>(
+    await this.client.store.set<SubscriptionEntries<Data>>(
       `${this.context.name}:${this.context.status}`,
       this.entries,
     );
   }
 
   private async restore() {
-    const subscriptions = await this.client.store.get<KeyValue<SubscriptionTracker<Data>>>(
+    const subscriptions = await this.client.store.get<SubscriptionEntries<Data>>(
       `${this.context.name}:${this.context.status}`,
     );
     if (typeof subscriptions === "undefined") return;
@@ -119,13 +134,13 @@ export class Subscription<Data = any> extends ISubscription<Data> {
         `Restore will override already set ${this.context.status} ${this.context.name}`,
       );
     }
-    this.subscriptions = objToMap<SubscriptionTracker<Data>>(subscriptions);
+    this.subscriptions = objToMap<SubscriptionParams<Data>>(subscriptions);
     for (const [_, subscription] of this.subscriptions) {
-      const { topic, relay } = subscription;
+      const { topic, opts } = subscription;
       this.client.relay.subscribe(
         topic,
-        (message: string) => this.onMessage({ topic, message }),
-        relay,
+        (payload: JsonRpcPayload) => this.onMessage({ topic, payload }),
+        opts,
       );
     }
   }

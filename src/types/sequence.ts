@@ -1,4 +1,3 @@
-import { KeyValue } from "../client/controllers";
 import { IClient } from "./client";
 import { IEvents } from "./events";
 import { ISubscription, SubscriptionEvent } from "./subscription";
@@ -25,7 +24,7 @@ export abstract class ISequence<
   // returns settled subscriptions length
   public abstract readonly length: number;
   // returns settled subscriptions entries
-  public abstract readonly entries: KeyValue<Settled>;
+  public abstract readonly entries: Record<string, Settled>;
   // describes sequence context
   protected abstract context: string;
 
@@ -35,11 +34,6 @@ export abstract class ISequence<
 
   // initialize with persisted state
   public abstract init(): Promise<void>;
-
-  // event methods
-  public abstract on(event: string, listener: any): void;
-  public abstract once(event: string, listener: any): void;
-  public abstract off(event: string, listener: any): void;
 
   // called by proposer
   public abstract create(params?: CreateParams): Promise<Settled>;
@@ -58,13 +52,13 @@ export abstract class ISequence<
   protected abstract settle(params: SettleParams): Promise<Settled>;
 
   // callback for proposed subscriptions
-  protected abstract onResponse(messageEvent: SubscriptionEvent.Message): Promise<void>;
+  protected abstract onResponse(payloadEvent: SubscriptionEvent.Payload): Promise<void>;
   // callback for responded subscriptions
-  protected abstract onAcknowledge(messageEvent: SubscriptionEvent.Message): Promise<void>;
+  protected abstract onAcknowledge(payloadEvent: SubscriptionEvent.Payload): Promise<void>;
   // callback for settled subscriptions
-  protected abstract onMessage(messageEvent: SubscriptionEvent.Message): Promise<void>;
+  protected abstract onMessage(payloadEvent: SubscriptionEvent.Payload): Promise<void>;
   // callback for state update requests
-  protected abstract onUpdate(messageEvent: SubscriptionEvent.Message): Promise<void>;
+  protected abstract onUpdate(payloadEvent: SubscriptionEvent.Payload): Promise<void>;
   // validates and processes state udpates
   protected abstract handleUpdate(
     settled: Settled,

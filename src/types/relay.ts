@@ -1,5 +1,6 @@
+import { DecryptParams, EncryptParams } from "./crypto";
 import { IEvents } from "./events";
-import { IJsonRpcProvider } from "./jsonrpc";
+import { IJsonRpcProvider, JsonRpcPayload } from "./jsonrpc";
 
 export abstract class IRelayClient extends IEvents {
   public abstract provider: IJsonRpcProvider;
@@ -19,6 +20,14 @@ export abstract class IRelayClient extends IEvents {
   public abstract unsubscribe(topic: string, listener: (message: string) => void): any;
 }
 
+export interface RelayPublishOptions {
+  relay?: string;
+  encrypt?: Omit<EncryptParams, "message">;
+}
+export interface RelaySubscribeOptions {
+  relay?: string;
+  decrypt?: Omit<DecryptParams, "encrypted">;
+}
 export abstract class IRelay extends IEvents {
   public abstract default: string;
   public abstract clients: RelayClients;
@@ -29,18 +38,18 @@ export abstract class IRelay extends IEvents {
 
   public abstract init(opts?: RelayUserOptions): Promise<void>;
 
-  public abstract publish(topic: string, message: string, relay?: string): any;
+  public abstract publish(topic: string, payload: JsonRpcPayload, opts?: RelayPublishOptions): any;
 
   public abstract subscribe(
     topic: string,
-    listener: (message: string) => void,
-    relay?: string,
+    listener: (payload: JsonRpcPayload) => void,
+    opts?: RelaySubscribeOptions,
   ): any;
 
   public abstract unsubscribe(
     topic: string,
-    listener: (message: string) => void,
-    relay?: string,
+    listener: (payload: JsonRpcPayload) => void,
+    opts?: RelaySubscribeOptions,
   ): any;
 }
 

@@ -1,42 +1,39 @@
 import { EventEmitter } from "events";
 
+import { Subscription } from "./subscription";
 import {
+  ConnectionTypes,
   IClient,
   IConnection,
-  JsonRpcRequest,
   JsonRpcPayload,
+  JsonRpcRequest,
+  JsonRpcResponse,
   SubscriptionEvent,
-  ConnectionTypes,
 } from "../../types";
 import {
-  generateKeyPair,
   deriveSharedKey,
-  sha256,
-  formatJsonRpcRequest,
-  assertType,
-  generateRandomBytes32,
   formatJsonRpcError,
+  formatJsonRpcRequest,
   formatJsonRpcResult,
-  safeJsonParse,
-  safeJsonStringify,
-  isConnectionFailed,
+  generateKeyPair,
+  generateRandomBytes32,
   getConnectionMetadata,
-  mapKeyValue,
+  isConnectionFailed,
+  isJsonRpcError,
+  isJsonRpcRequest,
+  mapEntries,
+  sha256,
 } from "../../utils";
 import {
   CONNECTION_CONTEXT,
   CONNECTION_EVENTS,
-  CONNECTION_JSONRPC,
   CONNECTION_JSONRPC_AFTER_SETTLEMENT,
+  CONNECTION_JSONRPC,
   CONNECTION_REASONS,
   CONNECTION_STATUS,
-  SESSION_EVENTS,
-  SESSION_JSONRPC,
   SESSION_JSONRPC_BEFORE_SETTLEMENT,
   SUBSCRIPTION_EVENTS,
 } from "../constants";
-import { KeyValue } from "./store";
-import { Subscription } from "./subscription";
 
 export class Connection extends IConnection {
   public proposed: Subscription<ConnectionTypes.Proposed>;
@@ -52,14 +49,17 @@ export class Connection extends IConnection {
     this.proposed = new Subscription<ConnectionTypes.Proposed>(client, {
       name: this.context,
       status: CONNECTION_STATUS.proposed,
+      encrypted: false,
     });
     this.responded = new Subscription<ConnectionTypes.Responded>(client, {
       name: this.context,
       status: CONNECTION_STATUS.responded,
+      encrypted: false,
     });
     this.settled = new Subscription<ConnectionTypes.Settled>(client, {
       name: this.context,
       status: CONNECTION_STATUS.settled,
+      encrypted: true,
     });
     this.registerEventListeners();
   }
@@ -74,8 +74,8 @@ export class Connection extends IConnection {
     return this.settled.length;
   }
 
-  get entries(): KeyValue<ConnectionTypes.Settled> {
-    return mapKeyValue(this.settled.entries, x => x.data);
+  get entries(): Record<string, ConnectionTypes.Settled> {
+    return mapEntries(this.settled.entries, x => x.data);
   }
 
   public async create(params?: ConnectionTypes.CreateParams): Promise<ConnectionTypes.Settled> {
@@ -85,11 +85,11 @@ export class Connection extends IConnection {
         if (proposed.topic !== proposal.topic) return;
         const responded: ConnectionTypes.Responded = await this.responded.get(proposal.topic);
         if (isConnectionFailed(responded.outcome)) {
-          await this.responded.del(responded.topic, responded.outcome.reason);
+          await this.responded.delete(responded.topic, responded.outcome.reason);
           reject(new Error(responded.outcome.reason));
         } else {
           const connection = await this.settled.get(responded.outcome.topic);
-          await this.responded.del(responded.topic, CONNECTION_REASONS.settled);
+          await this.responded.delete(responded.topic, CONNECTION_REASONS.settled);
           resolve(connection);
         }
       });
@@ -100,7 +100,6 @@ export class Connection extends IConnection {
     const { approved, proposal } = params;
     if (approved) {
       try {
-        assertType(proposal, "publicKey", "string");
         const keyPair = generateKeyPair();
         const relay = proposal.relay;
         const connection = await this.settle({
@@ -115,7 +114,7 @@ export class Connection extends IConnection {
           ...proposal,
           outcome: connection,
         };
-        await this.responded.set(responded.topic, responded.relay, responded);
+        await this.responded.set(responded.topic, responded, { relay: responded.relay });
         return responded;
       } catch (e) {
         const reason = e.message;
@@ -123,7 +122,7 @@ export class Connection extends IConnection {
           ...proposal,
           outcome: { reason },
         };
-        await this.responded.set(responded.topic, responded.relay, responded);
+        await this.responded.set(responded.topic, responded, { relay: responded.relay });
         return responded;
       }
     } else {
@@ -131,7 +130,7 @@ export class Connection extends IConnection {
         ...proposal,
         outcome: { reason: CONNECTION_REASONS.not_approved },
       };
-      await this.responded.set(responded.topic, responded.relay, responded);
+      await this.responded.set(responded.topic, responded, { relay: responded.relay });
       return responded;
     }
   }
@@ -140,12 +139,18 @@ export class Connection extends IConnection {
     const connection = await this.settled.get(params.topic);
     const update = await this.handleUpdate(connection, params);
     const request = formatJsonRpcRequest(CONNECTION_JSONRPC.update, update);
-    this.client.relay.publish(connection.topic, safeJsonStringify(request), connection.relay);
+    this.client.relay.publish(connection.topic, request, {
+      relay: connection.relay,
+      encrypt: {
+        sharedKey: connection.sharedKey,
+        publicKey: connection.keyPair.publicKey,
+      },
+    });
     return connection;
   }
 
   public async delete(params: ConnectionTypes.DeleteParams): Promise<void> {
-    await this.settled.del(params.topic, params.reason);
+    await this.settled.delete(params.topic, params.reason);
   }
 
   public on(event: string, listener: any): void {
@@ -166,27 +171,30 @@ export class Connection extends IConnection {
     params?: ConnectionTypes.ProposeParams,
   ): Promise<ConnectionTypes.Proposal> {
     const relay = params?.relay || this.client.relay.default;
+    const topic = generateRandomBytes32();
+    const keyPair = generateKeyPair();
+    const proposal: ConnectionTypes.Proposal = {
+      relay,
+      topic,
+      publicKey: keyPair.publicKey,
+    };
     const proposed: ConnectionTypes.Proposed = {
       relay,
-      topic: generateRandomBytes32(),
-      keyPair: generateKeyPair(),
+      topic,
+      keyPair,
+      proposal,
     };
-    await this.proposed.set(proposed.topic, relay, proposed);
+    await this.proposed.set(proposed.topic, proposed, { relay });
 
-    const proposal: ConnectionTypes.Proposal = {
-      relay: proposed.relay,
-      topic: proposed.topic,
-      publicKey: proposed.keyPair.publicKey,
-    };
     return proposal;
   }
 
   protected async settle(params: ConnectionTypes.SettleParams): Promise<ConnectionTypes.Settled> {
-    const symKey = deriveSharedKey(params.keyPair.privateKey, params.peer.publicKey);
+    const sharedKey = deriveSharedKey(params.keyPair.privateKey, params.peer.publicKey);
     const connection: ConnectionTypes.Settled = {
       relay: params.relay,
-      topic: await sha256(symKey),
-      symKey,
+      topic: await sha256(sharedKey),
+      sharedKey,
       keyPair: params.keyPair,
       peer: params.peer,
       state: {},
@@ -195,94 +203,121 @@ export class Connection extends IConnection {
         jsonrpc: [...CONNECTION_JSONRPC_AFTER_SETTLEMENT, ...SESSION_JSONRPC_BEFORE_SETTLEMENT],
       },
     };
-    await this.settled.set(connection.topic, connection.relay, connection);
+    await this.settled.set(connection.topic, connection, {
+      relay: connection.relay,
+      decrypt: {
+        sharedKey: connection.sharedKey,
+        publicKey: connection.peer.publicKey,
+      },
+    });
     return connection;
   }
 
-  protected async onResponse(messageEvent: SubscriptionEvent.Message): Promise<void> {
-    const { topic, message } = messageEvent;
-    const request = safeJsonParse(message) as JsonRpcRequest;
+  protected async onResponse(payloadEvent: SubscriptionEvent.Payload): Promise<void> {
+    const { topic, payload } = payloadEvent;
+    const request = payload as JsonRpcRequest;
+    const outcome = request.params as ConnectionTypes.Outcome;
     const proposed = await this.proposed.get(topic);
     const { relay } = proposed;
-    try {
-      assertType(request, "publicKey", "string");
-      const connection = await this.settle({
-        relay: relay,
-        keyPair: proposed.keyPair,
-        peer: {
-          publicKey: request.params.publicKey,
-        },
-      });
-      const response = formatJsonRpcResult(request.id, true);
-      this.client.relay.publish(topic, safeJsonStringify(response), relay);
-      const responded: ConnectionTypes.Responded = {
-        relay: relay,
-        topic: proposed.topic,
-        publicKey: proposed.keyPair.publicKey,
-        outcome: connection,
-      };
-      await this.responded.set(topic, relay, responded);
-    } catch (e) {
-      const reason = e.message;
+    if (!isConnectionFailed(outcome)) {
+      try {
+        const connection = await this.settle({
+          relay: relay,
+          keyPair: proposed.keyPair,
+          peer: {
+            publicKey: request.params.publicKey,
+          },
+        });
+        const response = formatJsonRpcResult(request.id, true);
+        this.client.relay.publish(topic, response, { relay });
+        const responded: ConnectionTypes.Responded = {
+          relay: relay,
+          topic: proposed.topic,
+          publicKey: proposed.keyPair.publicKey,
+          outcome: connection,
+        };
+        await this.responded.set(topic, responded, { relay });
+      } catch (e) {
+        const reason = e.message;
+        const response = formatJsonRpcError(request.id, reason);
+        this.client.relay.publish(topic, response, { relay });
+        const responded: ConnectionTypes.Responded = {
+          relay: relay,
+          topic: proposed.topic,
+          publicKey: proposed.keyPair.publicKey,
+          outcome: { reason },
+        };
+        await this.responded.set(topic, responded, { relay });
+      }
+    } else {
+      const reason = outcome.reason;
       const response = formatJsonRpcError(request.id, reason);
-      this.client.relay.publish(topic, safeJsonStringify(response), relay);
+      this.client.relay.publish(topic, response, { relay });
       const responded: ConnectionTypes.Responded = {
         relay: relay,
         topic: proposed.topic,
         publicKey: proposed.keyPair.publicKey,
         outcome: { reason },
       };
-      await this.responded.set(topic, relay, responded);
+      await this.responded.set(topic, responded, { relay });
     }
-    await this.proposed.del(topic, CONNECTION_REASONS.responded);
+    await this.proposed.delete(topic, CONNECTION_REASONS.responded);
   }
 
-  protected async onAcknowledge(messageEvent: SubscriptionEvent.Message): Promise<void> {
-    const { topic, message } = messageEvent;
-    const response = safeJsonParse(message);
+  protected async onAcknowledge(payloadEvent: SubscriptionEvent.Payload): Promise<void> {
+    const { topic, payload } = payloadEvent;
+    const response = payload as JsonRpcResponse;
     const responded = await this.responded.get(topic);
-    if (response.error && !isConnectionFailed(responded.outcome)) {
-      await this.settled.del(responded.outcome.topic, response.error.message);
+    if (isJsonRpcError(response) && !isConnectionFailed(responded.outcome)) {
+      await this.settled.delete(responded.outcome.topic, response.error.message);
     }
-    await this.responded.del(topic, CONNECTION_REASONS.acknowledged);
+    await this.responded.delete(topic, CONNECTION_REASONS.acknowledged);
   }
 
-  protected async onMessage(messageEvent: SubscriptionEvent.Message): Promise<void> {
-    const payload = safeJsonParse(messageEvent.message) as JsonRpcPayload;
-    if (typeof (payload as JsonRpcRequest).method !== "undefined") {
+  protected async onMessage(payloadEvent: SubscriptionEvent.Payload): Promise<void> {
+    const payload = payloadEvent.payload as JsonRpcPayload;
+    if (isJsonRpcRequest(payload)) {
       const request = payload as JsonRpcRequest;
-      const connection = await this.settled.get(messageEvent.topic);
+      const connection = await this.settled.get(payloadEvent.topic);
       if (!connection.rules.jsonrpc.includes(request.method)) {
         const response = formatJsonRpcError(
           request.id,
           `Unauthorized JSON-RPC Method Requested: ${request.method}`,
         );
-        this.client.relay.publish(connection.topic, safeJsonStringify(response), connection.relay);
+        this.client.relay.publish(connection.topic, response);
       }
       switch (request.method) {
         case CONNECTION_JSONRPC.update:
-          await this.onUpdate(messageEvent);
+          await this.onUpdate(payloadEvent);
           break;
-        case SESSION_JSONRPC.propose:
-          this.client.events.emit(SESSION_EVENTS.proposed, request);
+        case CONNECTION_JSONRPC.delete:
+          await this.settled.delete(connection.topic, request.params.reason);
           break;
         default:
-          this.events.emit(CONNECTION_EVENTS.message, messageEvent);
+          this.events.emit(CONNECTION_EVENTS.payload, payloadEvent.payload);
           break;
       }
+    } else {
+      this.events.emit(CONNECTION_EVENTS.payload, payloadEvent.payload);
     }
   }
 
-  protected async onUpdate(messageEvent: SubscriptionEvent.Message): Promise<void> {
-    const request = safeJsonParse(messageEvent.message) as JsonRpcRequest;
-    const connection = await this.settled.get(messageEvent.topic);
+  protected async onUpdate(payloadEvent: SubscriptionEvent.Payload): Promise<void> {
+    const request = payloadEvent.payload as JsonRpcRequest;
+    const connection = await this.settled.get(payloadEvent.topic);
     try {
       await this.handleUpdate(connection, request.params, true);
       const response = formatJsonRpcResult(request.id, true);
-      this.client.relay.publish(connection.topic, safeJsonStringify(response), connection.relay);
+      this.client.relay.publish(connection.topic, response, {
+        relay: connection.relay,
+        encrypt: { sharedKey: connection.sharedKey, publicKey: connection.keyPair.publicKey },
+      });
     } catch (e) {
       const response = formatJsonRpcError(request.id, e.message);
-      this.client.relay.publish(connection.topic, safeJsonStringify(response), connection.relay);
+      this.client.relay.publish(connection.topic, response, {
+        relay: connection.relay,
+        encrypt: { sharedKey: connection.sharedKey, publicKey: connection.keyPair.publicKey },
+      });
     }
   }
 
@@ -311,7 +346,7 @@ export class Connection extends IConnection {
     } else {
       throw new Error(`Invalid ${this.context} update request params`);
     }
-    await this.settled.set(connection.topic, connection.relay, connection);
+    await this.settled.update(connection.topic, connection);
     return update;
   }
 
@@ -319,43 +354,53 @@ export class Connection extends IConnection {
 
   private registerEventListeners(): void {
     // Proposed Subscription Events
-    this.proposed.on(SUBSCRIPTION_EVENTS.message, (messageEvent: SubscriptionEvent.Message) =>
-      this.onResponse(messageEvent),
+    this.proposed.on(SUBSCRIPTION_EVENTS.payload, (payloadEvent: SubscriptionEvent.Payload) =>
+      this.onResponse(payloadEvent),
     );
     this.proposed.on(
       SUBSCRIPTION_EVENTS.created,
-      (createdEvent: SubscriptionEvent.Created<ConnectionTypes.Proposed>) =>
-        this.events.emit(CONNECTION_EVENTS.proposed, createdEvent.data),
+      (createdEvent: SubscriptionEvent.Created<ConnectionTypes.Proposed>) => {
+        const proposed = createdEvent.data;
+        this.events.emit(CONNECTION_EVENTS.proposed, proposed);
+      },
     );
     // Responded Subscription Events
-    this.responded.on(SUBSCRIPTION_EVENTS.message, (messageEvent: SubscriptionEvent.Message) =>
-      this.onAcknowledge(messageEvent),
+    this.responded.on(SUBSCRIPTION_EVENTS.payload, (payloadEvent: SubscriptionEvent.Payload) =>
+      this.onAcknowledge(payloadEvent),
     );
     this.responded.on(
       SUBSCRIPTION_EVENTS.created,
       (createdEvent: SubscriptionEvent.Created<ConnectionTypes.Responded>) => {
         const responded = createdEvent.data;
-        this.events.emit("connect_responded", responded);
+        this.events.emit(CONNECTION_EVENTS.responded, responded);
         const params = isConnectionFailed(responded.outcome)
           ? { reason: responded.outcome.reason }
           : { publicKey: responded.publicKey };
         const request = formatJsonRpcRequest(CONNECTION_JSONRPC.respond, params);
-        this.client.relay.publish(responded.topic, safeJsonStringify(request), responded.relay);
+        this.client.relay.publish(responded.topic, request, { relay: responded.relay });
       },
     );
     // Settled Subscription Events
-    this.settled.on(SUBSCRIPTION_EVENTS.message, (messageEvent: SubscriptionEvent.Message) =>
-      this.onMessage(messageEvent),
+    this.settled.on(SUBSCRIPTION_EVENTS.payload, (payloadEvent: SubscriptionEvent.Payload) =>
+      this.onMessage(payloadEvent),
     );
     this.settled.on(
       SUBSCRIPTION_EVENTS.created,
       (createdEvent: SubscriptionEvent.Created<ConnectionTypes.Settled>) => {
-        this.events.emit(CONNECTION_EVENTS.settled, createdEvent.data);
-        if (typeof createdEvent.data.peer.metadata === "undefined") {
+        const connection = createdEvent.data;
+        this.events.emit(CONNECTION_EVENTS.settled, connection);
+        if (typeof connection.peer.metadata === "undefined") {
           const metadata = getConnectionMetadata();
           if (!metadata) return;
-          this.update({ topic: createdEvent.data.topic, metadata });
+          this.update({ topic: connection.topic, metadata });
         }
+      },
+    );
+    this.settled.on(
+      SUBSCRIPTION_EVENTS.updated,
+      (updatedEvent: SubscriptionEvent.Updated<ConnectionTypes.Settled>) => {
+        const connection = updatedEvent.data;
+        this.events.emit(CONNECTION_EVENTS.updated, connection);
       },
     );
     this.settled.on(
@@ -366,7 +411,7 @@ export class Connection extends IConnection {
         const request = formatJsonRpcRequest(CONNECTION_JSONRPC.delete, {
           reason: deletedEvent.reason,
         });
-        this.client.relay.publish(connection.topic, safeJsonStringify(request), connection.relay);
+        this.client.relay.publish(connection.topic, request, { relay: connection.relay });
       },
     );
   }

@@ -7,10 +7,19 @@ import {
   ClientConnectParams,
   ClientDisconnectParams,
   ConnectionTypes,
+  JsonRpcPayload,
+  SessionTypes,
+  JsonRpcRequest,
 } from "../types";
-import { formatUri } from "../utils";
+import { formatUri, isJsonRpcRequest } from "../utils";
 import { timeStamp } from "console";
-import { CONNECTION_EVENTS } from "./constants";
+import {
+  CONNECTION_CONTEXT,
+  CONNECTION_EVENTS,
+  SESSION_CONTEXT,
+  SESSION_EVENTS,
+  SESSION_JSONRPC,
+} from "./constants";
 
 export class Client extends IClient {
   public readonly protocol = "wc";
@@ -94,6 +103,26 @@ export class Client extends IClient {
     // finally: resolve promise
   }
 
+  // ---------- Protected ----------------------------------------------- //
+
+  protected async onPayload(payload: JsonRpcPayload, context: string): Promise<void> {
+    const eventName =
+      context === CONNECTION_CONTEXT ? CONNECTION_EVENTS.payload : SESSION_EVENTS.payload;
+    if (isJsonRpcRequest(payload)) {
+      const request = payload as JsonRpcRequest;
+      switch (request.method) {
+        case SESSION_JSONRPC.propose:
+          this.events.emit(SESSION_EVENTS.proposed, request.params);
+          break;
+        default:
+          this.events.emit(eventName, payload);
+          break;
+      }
+    } else {
+      this.events.emit(eventName, payload);
+    }
+  }
+
   // ---------- Private ----------------------------------------------- //
 
   private async initialize(): Promise<any> {
@@ -101,5 +130,47 @@ export class Client extends IClient {
     await this.store.init();
     await this.connection.init();
     await this.session.init();
+    this.registerEventListeners();
+  }
+
+  private registerEventListeners(): void {
+    // Connection Subscription Events
+    this.connection.on(CONNECTION_EVENTS.proposed, (proposed: ConnectionTypes.Proposed) =>
+      this.events.emit(CONNECTION_EVENTS.proposed, proposed),
+    );
+    this.connection.on(CONNECTION_EVENTS.responded, (responded: ConnectionTypes.Responded) =>
+      this.events.emit(CONNECTION_EVENTS.responded, responded),
+    );
+    this.connection.on(CONNECTION_EVENTS.settled, (connection: ConnectionTypes.Settled) =>
+      this.events.emit(CONNECTION_EVENTS.settled, connection),
+    );
+    this.connection.on(CONNECTION_EVENTS.updated, (connection: ConnectionTypes.Settled) =>
+      this.events.emit(CONNECTION_EVENTS.updated, connection),
+    );
+    this.connection.on(CONNECTION_EVENTS.deleted, (connection: ConnectionTypes.Settled) =>
+      this.events.emit(CONNECTION_EVENTS.deleted, connection),
+    );
+    this.connection.on(CONNECTION_EVENTS.payload, (payload: JsonRpcPayload) =>
+      this.onPayload(payload, CONNECTION_CONTEXT),
+    );
+    // Session Subscription Events
+    this.session.on(SESSION_EVENTS.proposed, (proposed: SessionTypes.Proposed) =>
+      this.events.emit(SESSION_EVENTS.proposed, proposed),
+    );
+    this.session.on(SESSION_EVENTS.responded, (responded: SessionTypes.Responded) =>
+      this.events.emit(SESSION_EVENTS.responded, responded),
+    );
+    this.session.on(SESSION_EVENTS.settled, (session: SessionTypes.Settled) =>
+      this.events.emit(SESSION_EVENTS.settled, session),
+    );
+    this.session.on(SESSION_EVENTS.updated, (session: SessionTypes.Settled) =>
+      this.events.emit(SESSION_EVENTS.updated, session),
+    );
+    this.session.on(SESSION_EVENTS.deleted, (session: SessionTypes.Settled) =>
+      this.events.emit(SESSION_EVENTS.deleted, session),
+    );
+    this.session.on(SESSION_EVENTS.payload, (payload: JsonRpcPayload) =>
+      this.onPayload(payload, SESSION_CONTEXT),
+    );
   }
 }

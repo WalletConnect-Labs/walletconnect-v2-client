@@ -20,7 +20,7 @@ export const CONNECTION_STATUS = {
 };
 
 export const CONNECTION_EVENTS = {
-  message: "connection_message",
+  payload: "connection_payload",
   proposed: "connection_proposed",
   responded: "connection_responded",
   settled: "connection_settled",

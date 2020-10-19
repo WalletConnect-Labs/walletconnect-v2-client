@@ -1,18 +1,13 @@
 export const SESSION_JSONRPC = {
   propose: "wc_proposeSession",
   respond: "wc_respondSession",
-  acknowledge: "wc_acknowledgeSession",
   update: "wc_updateSession",
   delete: "wc_deleteSession",
 };
 
 export const SESSION_JSONRPC_BEFORE_SETTLEMENT = [SESSION_JSONRPC.propose, SESSION_JSONRPC.respond];
 
-export const SESSION_JSONRPC_AFTER_SETTLEMENT = [
-  SESSION_JSONRPC.acknowledge,
-  SESSION_JSONRPC.update,
-  SESSION_JSONRPC.delete,
-];
+export const SESSION_JSONRPC_AFTER_SETTLEMENT = [SESSION_JSONRPC.update, SESSION_JSONRPC.delete];
 
 export const SESSION_CONTEXT = "session";
 
@@ -23,7 +18,7 @@ export const SESSION_STATUS = {
 };
 
 export const SESSION_EVENTS = {
-  message: "session_message",
+  payload: "session_payload",
   proposed: "session_proposed",
   responded: "session_responded",
   settled: "session_settled",

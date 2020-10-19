@@ -31,7 +31,7 @@
     "enc-utils": "^2.2.2",
     "js-sha3": "^0.8.0",
     "query-string": "^6.13.5",
-    "rpc-json-utils": "^1.0.1",
+    "rpc-json-utils": "^1.1.0",
     "safe-json-utils": "^1.0.1",
     "window-getters": "^1.0.1",
     "window-metadata": "^1.0.1"

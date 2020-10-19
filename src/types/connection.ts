@@ -6,26 +6,26 @@ export declare namespace ConnectionTypes {
     relay: string;
   }
 
-  export type CreateParams = ConnectionTypes.ProposeParams;
+  export type CreateParams = ProposeParams;
 
   export interface RespondParams {
     approved: boolean;
-    proposal: ConnectionTypes.Proposal;
+    proposal: Proposal;
   }
 
   export interface SettleParams {
     relay: string;
-    peer: ConnectionTypes.Peer;
+    peer: Peer;
     keyPair: KeyPair;
   }
 
   export interface UpdateParams {
     topic: string;
-    state?: ConnectionTypes.State;
-    metadata?: ConnectionTypes.Metadata;
+    state?: State;
+    metadata?: Metadata;
   }
 
-  export type Update = { state: ConnectionTypes.State } | { metadata: ConnectionTypes.Metadata };
+  export type Update = { state: State } | { metadata: Metadata };
   export interface DeleteParams {
     topic: string;
     reason: string;
@@ -35,6 +35,7 @@ export declare namespace ConnectionTypes {
     relay: string;
     topic: string;
     keyPair: KeyPair;
+    proposal: Proposal;
   }
 
   export interface Proposal {
@@ -46,16 +47,16 @@ export declare namespace ConnectionTypes {
   export interface Settled {
     relay: string;
     topic: string;
-    symKey: string;
+    sharedKey: string;
     keyPair: KeyPair;
-    peer: ConnectionTypes.Peer;
-    state: ConnectionTypes.State;
-    rules: ConnectionTypes.Rules;
+    peer: Peer;
+    state: State;
+    rules: Rules;
   }
 
   export interface Peer {
     publicKey: string;
-    metadata?: ConnectionTypes.Metadata;
+    metadata?: Metadata;
   }
 
   export interface Metadata {
@@ -75,22 +76,23 @@ export declare namespace ConnectionTypes {
   }
 
   export interface Rules {
-    state: ConnectionTypes.WriteAccess;
+    state: WriteAccess;
     jsonrpc: string[];
   }
 
   export interface Success {
     topic: string;
     relay: string;
+    state: State;
   }
   export interface Failed {
     reason: string;
   }
 
-  export type Outcome = ConnectionTypes.Failed | ConnectionTypes.Success;
+  export type Outcome = Failed | Success;
 
-  export interface Responded extends ConnectionTypes.Proposal {
-    outcome: ConnectionTypes.Outcome;
+  export interface Responded extends Proposal {
+    outcome: Outcome;
   }
 }
 

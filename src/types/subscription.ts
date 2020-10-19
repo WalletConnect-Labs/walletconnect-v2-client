@@ -1,22 +1,27 @@
-import { KeyValue } from "../client/controllers";
 import { IClient } from "./client";
 import { IEvents } from "./events";
+import { JsonRpcPayload } from "./jsonrpc";
+import { RelaySubscribeOptions } from "./relay";
 
 export interface SubscriptionContext {
   name: string;
   status: string;
+  encrypted: boolean;
 }
 
-export interface SubscriptionTracker<Data> {
-  topic: string;
+export interface SubscriptionOptions extends RelaySubscribeOptions {
   relay: string;
+}
+export interface SubscriptionParams<Data> {
+  topic: string;
   data: Data;
+  opts: SubscriptionOptions;
 }
 
 export declare namespace SubscriptionEvent {
-  export interface Message {
+  export interface Payload {
     topic: string;
-    message: string;
+    payload: JsonRpcPayload;
   }
 
   export interface Created<T> {
@@ -36,12 +41,14 @@ export declare namespace SubscriptionEvent {
   }
 }
 
+export type SubscriptionEntries<T> = Record<string, SubscriptionParams<T>>;
+
 export abstract class ISubscription<Data> extends IEvents {
-  public abstract subscriptions = new Map<string, SubscriptionTracker<Data>>();
+  public abstract subscriptions = new Map<string, SubscriptionParams<Data>>();
 
   public abstract readonly length: number;
 
-  public abstract readonly entries: KeyValue<SubscriptionTracker<Data>>;
+  public abstract readonly entries: SubscriptionEntries<Data>;
 
   constructor(public client: IClient, public context: SubscriptionContext) {
     super();
@@ -49,13 +56,15 @@ export abstract class ISubscription<Data> extends IEvents {
 
   public abstract init(): Promise<void>;
 
-  public abstract set(topic: string, relay: string, data: Data): Promise<void>;
+  public abstract set(topic: string, data: Data, opts: SubscriptionOptions): Promise<void>;
 
   public abstract get(topic: string): Promise<Data>;
 
-  public abstract del(topic: string, reason: string): Promise<void>;
+  public abstract update(topic: string, update: Partial<Data>): Promise<void>;
+
+  public abstract delete(topic: string, reason: string): Promise<void>;
 
   // ---------- Protected ----------------------------------------------- //
 
-  protected abstract onMessage(messageEvent: SubscriptionEvent.Message): Promise<any>;
+  protected abstract onMessage(payloadEvent: SubscriptionEvent.Payload): Promise<any>;
 }

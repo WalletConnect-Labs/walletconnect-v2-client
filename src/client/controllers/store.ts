@@ -1,9 +1,5 @@
 import { IStore } from "../../types";
 
-export interface KeyValue<T> {
-  [key: string]: T;
-}
-
 export class Store implements IStore {
   public async init(): Promise<any> {
     return;
@@ -17,7 +13,7 @@ export class Store implements IStore {
     return {} as any;
   }
 
-  public async del(key: string): Promise<void> {
+  public async delete(key: string): Promise<void> {
     return;
   }
 }

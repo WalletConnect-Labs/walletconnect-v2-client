@@ -3,11 +3,10 @@ import { KeyPair } from "./crypto";
 export declare namespace SessionTypes {
   export interface Connection {
     topic: string;
-    relay: string;
   }
 
   export interface ProposeParams {
-    connection: Omit<Connection, "relay">;
+    connection: Connection;
     relay: string;
     stateParams: StateParams;
     metadata: Metadata;
@@ -17,7 +16,6 @@ export declare namespace SessionTypes {
   export type CreateParams = ProposeParams;
 
   export interface RespondParams {
-    request: { id: number };
     approved: boolean;
     state: State;
     metadata: Metadata;
@@ -44,23 +42,25 @@ export declare namespace SessionTypes {
   }
 
   export interface Proposed {
-    connection: Connection;
+    topic: string;
+    relay: string;
     keyPair: KeyPair;
     proposal: Proposal;
   }
 
   export interface Proposal {
-    connection: Connection;
+    topic: string;
     relay: string;
     peer: Peer;
     stateParams: StateParams;
     rules: Rules;
+    connection: Connection;
   }
 
   export interface Settled {
     relay: string;
     topic: string;
-    symKey: string;
+    sharedKey: string;
     keyPair: KeyPair;
     peer: Peer;
     state: State;
@@ -102,6 +102,8 @@ export declare namespace SessionTypes {
   export interface Success {
     topic: string;
     relay: string;
+    publicKey: string;
+    state: State;
   }
   export interface Failed {
     reason: string;
@@ -109,8 +111,7 @@ export declare namespace SessionTypes {
 
   export type Outcome = Failed | Success;
 
-  export interface Responded extends Proposal {
-    request: { id: number };
+  export interface Responded extends Omit<Proposal, "stateParams"> {
     outcome: Outcome;
   }
 }
