@@ -8,15 +8,39 @@ export declare namespace ConnectionTypes {
 
   export type CreateParams = ProposeParams;
 
+  export interface Proposal {
+    topic: string;
+    relay: string;
+    peer: Peer;
+  }
+
+  export interface Proposed extends Proposal {
+    keyPair: KeyPair;
+  }
+
   export interface RespondParams {
     approved: boolean;
     proposal: Proposal;
+  }
+
+  export interface Responded extends Proposal {
+    outcome: Outcome;
   }
 
   export interface SettleParams {
     relay: string;
     peer: Peer;
     keyPair: KeyPair;
+  }
+
+  export interface Settled {
+    topic: string;
+    relay: string;
+    sharedKey: string;
+    keyPair: KeyPair;
+    peer: Peer;
+    state: State;
+    rules: Rules;
   }
 
   export interface UpdateParams {
@@ -26,32 +50,10 @@ export declare namespace ConnectionTypes {
   }
 
   export type Update = { state: State } | { metadata: Metadata };
+
   export interface DeleteParams {
     topic: string;
     reason: string;
-  }
-
-  export interface Proposed {
-    relay: string;
-    topic: string;
-    keyPair: KeyPair;
-    proposal: Proposal;
-  }
-
-  export interface Proposal {
-    relay: string;
-    topic: string;
-    publicKey: string;
-  }
-
-  export interface Settled {
-    relay: string;
-    topic: string;
-    sharedKey: string;
-    keyPair: KeyPair;
-    peer: Peer;
-    state: State;
-    rules: Rules;
   }
 
   export interface Peer {
@@ -67,7 +69,22 @@ export declare namespace ConnectionTypes {
   }
 
   // eslint-disable-next-line
+  export interface StateParams {}
+
+  // eslint-disable-next-line
   export interface State {}
+
+  export interface WriteAccessParams {
+    [key: string]: {
+      proposer: boolean;
+      responder: boolean;
+    };
+  }
+
+  export interface RuleParams {
+    state: WriteAccessParams;
+    jsonrpc: string[];
+  }
 
   export interface WriteAccess {
     [key: string]: {
@@ -90,10 +107,6 @@ export declare namespace ConnectionTypes {
   }
 
   export type Outcome = Failed | Success;
-
-  export interface Responded extends Proposal {
-    outcome: Outcome;
-  }
 }
 
 export abstract class IConnection extends ISequence<

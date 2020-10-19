@@ -106,7 +106,7 @@ export class Connection extends IConnection {
           relay,
           keyPair,
           peer: {
-            publicKey: proposal.publicKey,
+            publicKey: proposal.peer.publicKey,
           },
         });
 
@@ -176,13 +176,11 @@ export class Connection extends IConnection {
     const proposal: ConnectionTypes.Proposal = {
       relay,
       topic,
-      publicKey: keyPair.publicKey,
+      peer: { publicKey: keyPair.publicKey },
     };
     const proposed: ConnectionTypes.Proposed = {
-      relay,
-      topic,
+      ...proposal,
       keyPair,
-      proposal,
     };
     await this.proposed.set(proposed.topic, proposed, { relay });
 
@@ -233,7 +231,7 @@ export class Connection extends IConnection {
         const responded: ConnectionTypes.Responded = {
           relay: relay,
           topic: proposed.topic,
-          publicKey: proposed.keyPair.publicKey,
+          peer: { publicKey: proposed.keyPair.publicKey },
           outcome: connection,
         };
         await this.responded.set(topic, responded, { relay });
@@ -244,7 +242,7 @@ export class Connection extends IConnection {
         const responded: ConnectionTypes.Responded = {
           relay: relay,
           topic: proposed.topic,
-          publicKey: proposed.keyPair.publicKey,
+          peer: { publicKey: proposed.keyPair.publicKey },
           outcome: { reason },
         };
         await this.responded.set(topic, responded, { relay });
@@ -256,7 +254,7 @@ export class Connection extends IConnection {
       const responded: ConnectionTypes.Responded = {
         relay: relay,
         topic: proposed.topic,
-        publicKey: proposed.keyPair.publicKey,
+        peer: { publicKey: proposed.keyPair.publicKey },
         outcome: { reason },
       };
       await this.responded.set(topic, responded, { relay });
@@ -375,7 +373,7 @@ export class Connection extends IConnection {
         this.events.emit(CONNECTION_EVENTS.responded, responded);
         const params = isConnectionFailed(responded.outcome)
           ? { reason: responded.outcome.reason }
-          : { publicKey: responded.publicKey };
+          : { publicKey: responded.peer.publicKey };
         const request = formatJsonRpcRequest(CONNECTION_JSONRPC.respond, params);
         this.client.relay.publish(responded.topic, request, { relay: responded.relay });
       },

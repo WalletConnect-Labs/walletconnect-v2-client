@@ -94,25 +94,25 @@ export class Session extends ISession {
 
   public async respond(params: SessionTypes.RespondParams): Promise<SessionTypes.Responded> {
     const { approved, proposal } = params;
+    const { relay, peer, ruleParams } = proposal;
     if (approved) {
       try {
         const keyPair = generateKeyPair();
-        const relay = proposal.relay;
-        const proposer = proposal.peer.publicKey;
+        const proposer = peer.publicKey;
         const responder = keyPair.publicKey;
         const session = await this.settle({
           relay,
           keyPair,
-          peer: proposal.peer,
+          peer: peer,
           state: params.state,
           rules: {
             state: {
               accounts: {
-                [proposer]: proposal.ruleParams.state.accounts.proposer,
-                [responder]: proposal.ruleParams.state.accounts.responder,
+                [proposer]: ruleParams.state.accounts.proposer,
+                [responder]: ruleParams.state.accounts.responder,
               },
             },
-            jsonrpc: proposal.ruleParams.jsonrpc,
+            jsonrpc: ruleParams.jsonrpc,
           },
         });
 
@@ -179,17 +179,15 @@ export class Session extends ISession {
         publicKey: keyPair.publicKey,
         metadata: params.metadata,
       },
-      stateParams: params.stateParams,
-      ruleParams: params.ruleParams,
       connection: {
         topic: connection.topic,
       },
+      stateParams: params.stateParams,
+      ruleParams: params.ruleParams,
     };
     const proposed: SessionTypes.Proposed = {
-      topic: proposal.topic,
-      relay: proposal.relay,
+      ...proposal,
       keyPair,
-      proposal,
     };
     const request = formatJsonRpcRequest(SESSION_JSONRPC.propose, proposal);
 
@@ -239,7 +237,7 @@ export class Session extends ISession {
     const request = payload as JsonRpcRequest;
     const outcome = request.params as SessionTypes.Outcome;
     const proposed = await this.proposed.get(topic);
-    const connection = await this.client.connection.settled.get(proposed.proposal.connection.topic);
+    const connection = await this.client.connection.settled.get(proposed.connection.topic);
     const { relay } = proposed;
     if (!isSessionFailed(outcome)) {
       try {
@@ -248,16 +246,16 @@ export class Session extends ISession {
         const session = await this.settle({
           relay,
           keyPair: proposed.keyPair,
-          peer: proposed.proposal.peer,
+          peer: proposed.peer,
           state: outcome.state,
           rules: {
             state: {
               accounts: {
-                [proposer]: proposed.proposal.ruleParams.state.accounts.proposer,
-                [responder]: proposed.proposal.ruleParams.state.accounts.responder,
+                [proposer]: proposed.ruleParams.state.accounts.proposer,
+                [responder]: proposed.ruleParams.state.accounts.responder,
               },
             },
-            jsonrpc: proposed.proposal.ruleParams.jsonrpc,
+            jsonrpc: proposed.ruleParams.jsonrpc,
           },
         });
         const response = formatJsonRpcResult(request.id, true);
@@ -269,10 +267,7 @@ export class Session extends ISession {
           },
         });
         const responded: SessionTypes.Responded = {
-          relay: relay,
-          topic: proposed.topic,
-          peer: proposed.proposal.peer,
-          connection: proposed.proposal.connection,
+          ...proposed,
           outcome: {
             topic: session.topic,
             relay: session.relay,
@@ -298,10 +293,7 @@ export class Session extends ISession {
           },
         });
         const responded: SessionTypes.Responded = {
-          relay: relay,
-          topic: proposed.topic,
-          peer: proposed.proposal.peer,
-          connection: proposed.proposal.connection,
+          ...proposed,
           outcome: { reason },
         };
         await this.responded.set(topic, responded, {
@@ -323,10 +315,7 @@ export class Session extends ISession {
         },
       });
       const responded: SessionTypes.Responded = {
-        relay: relay,
-        topic: proposed.topic,
-        peer: proposed.proposal.peer,
-        connection: proposed.proposal.connection,
+        ...proposed,
         outcome: { reason },
       };
       await this.responded.set(topic, responded, {
