@@ -368,7 +368,22 @@ export class Session extends ISession {
   }
 
   protected async onUpdate(payloadEvent: SubscriptionEvent.Payload): Promise<void> {
-    // TODO: implement onUpdate
+    const request = payloadEvent.payload as JsonRpcRequest;
+    const session = await this.settled.get(payloadEvent.topic);
+    try {
+      await this.handleUpdate(session, request.params, true);
+      const response = formatJsonRpcResult(request.id, true);
+      this.client.relay.publish(session.topic, response, {
+        relay: session.relay,
+        encrypt: { sharedKey: session.sharedKey, publicKey: session.keyPair.publicKey },
+      });
+    } catch (e) {
+      const response = formatJsonRpcError(request.id, e.message);
+      this.client.relay.publish(session.topic, response, {
+        relay: session.relay,
+        encrypt: { sharedKey: session.sharedKey, publicKey: session.keyPair.publicKey },
+      });
+    }
   }
 
   protected async handleUpdate(
@@ -376,8 +391,28 @@ export class Session extends ISession {
     params: SessionTypes.UpdateParams,
     fromPeer?: boolean,
   ): Promise<SessionTypes.Update> {
-    // TODO: implement handleUpdate
-    return {} as SessionTypes.Update;
+    let update: SessionTypes.Update;
+    if (typeof params.state !== "undefined") {
+      const state = params.state as SessionTypes.State;
+      const publicKey = fromPeer ? session.peer.publicKey : session.keyPair.publicKey;
+      for (const key of Object.keys(state)) {
+        if (!session.rules.state[key][publicKey]) {
+          throw new Error(`Unauthorized state update for key: ${key}`);
+        }
+        session.state[key] = state[key];
+      }
+      update = { state };
+    } else if (typeof params.metadata !== "undefined") {
+      const metadata = params.metadata as SessionTypes.Metadata;
+      if (fromPeer) {
+        session.peer.metadata = metadata;
+      }
+      update = { metadata };
+    } else {
+      throw new Error(`Invalid ${this.context} update request params`);
+    }
+    await this.settled.update(session.topic, session);
+    return update;
   }
 
   // ---------- Private ----------------------------------------------- //
