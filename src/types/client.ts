@@ -1,6 +1,6 @@
 import { IRelay, RelayUserOptions } from "./relay";
 import { IConnection } from "./connection";
-import { ISession } from "./session";
+import { ISession, SessionTypes } from "./session";
 import { IStore } from "./store";
 import { IEvents } from "./events";
 
@@ -10,17 +10,15 @@ export interface ClientOptions {
 }
 
 export interface ClientConnectParams {
-  app: {
-    id: string;
-    metadata: any;
-  };
+  chains: string[];
+  jsonrpc: string[];
+  app?: string | SessionTypes.Metadata;
+  relay?: string;
 }
 
 export interface ClientDisconnectParams {
-  app: {
-    id: string;
-    metadata: any;
-  };
+  topic: string;
+  reason: string;
 }
 
 export abstract class IClient extends IEvents {

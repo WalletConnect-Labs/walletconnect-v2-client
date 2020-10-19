@@ -31,3 +31,17 @@ export function getConnectionMetadata(): ConnectionTypes.Metadata | null {
 export function getSessionMetadata(): SessionTypes.Metadata | null {
   return WindowMetadata.getWindowMetadata();
 }
+
+export function getAppMetadataFromDid(did: string): SessionTypes.Metadata | null {
+  return {} as SessionTypes.Metadata;
+}
+
+export function getAppMetadata(app?: string | SessionTypes.Metadata): SessionTypes.Metadata {
+  return (
+    (typeof app === "undefined"
+      ? getSessionMetadata()
+      : typeof app === "string"
+      ? getAppMetadataFromDid(app)
+      : app) || ({} as SessionTypes.Metadata)
+  );
+}

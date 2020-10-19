@@ -11,7 +11,13 @@ import {
   SessionTypes,
   JsonRpcRequest,
 } from "../types";
-import { formatUri, isJsonRpcRequest } from "../utils";
+import {
+  formatUri,
+  getAppMetadata,
+  getAppMetadataFromDid,
+  getSessionMetadata,
+  isJsonRpcRequest,
+} from "../utils";
 import { timeStamp } from "console";
 import {
   CONNECTION_CONTEXT,
@@ -61,7 +67,7 @@ export class Client extends IClient {
     this.events.off(event, listener);
   }
 
-  public async connect(params: ClientConnectParams) {
+  public async connect(params: ClientConnectParams): Promise<string[]> {
     let connection: ConnectionTypes.Settled;
     if (!this.connection.length) {
       this.connection.on(CONNECTION_EVENTS.proposed, (proposed: ConnectionTypes.Proposed) => {
@@ -78,29 +84,30 @@ export class Client extends IClient {
       //
       // (temporarily let's just select the first one)
       //
-      connection = this.connection.settled.subscriptions.values().next().value;
+      connection = Object.values(this.connection.entries)[0];
     }
+    const session = await this.session.create({
+      connection: { topic: connection.topic },
+      relay: params.relay || this.relay.default,
+      metadata: getAppMetadata(params.app),
+      stateParams: {
+        chains: params.chains,
+      },
+      ruleParams: {
+        state: {
+          accounts: {
+            proposer: false,
+            responder: true,
+          },
+        },
+        jsonrpc: params.jsonrpc,
+      },
+    });
+    return session.state.accounts;
   }
 
-  public async disconnect(params: ClientDisconnectParams) {
-    // TODO: implement disconnect
-    // the client should be able to settle the UI internally by defining a standard user flow
-    //
-    // required context params:
-    //    - environment identifier (aka connection metadata)
-    //    - persisted connections
-    //    - persisted sessions
-    //
-    // required user params:
-    //    - application identifier (aka session metadata)
-    //
-    // first: verify if connection and/or matching session exists
-    // if no connection/session present
-    //    - throw error
-    // if a connection/session present
-    //    - this.session.delete()
-    //
-    // finally: resolve promise
+  public async disconnect(params: ClientDisconnectParams): Promise<void> {
+    await this.session.delete(params);
   }
 
   // ---------- Protected ----------------------------------------------- //

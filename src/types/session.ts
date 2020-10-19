@@ -9,8 +9,8 @@ export declare namespace SessionTypes {
     connection: Connection;
     relay: string;
     stateParams: StateParams;
+    ruleParams: RuleParams;
     metadata: Metadata;
-    rules: Rules;
   }
 
   export type CreateParams = ProposeParams;
@@ -53,7 +53,7 @@ export declare namespace SessionTypes {
     relay: string;
     peer: Peer;
     stateParams: StateParams;
-    rules: Rules;
+    ruleParams: RuleParams;
     connection: Connection;
   }
 
@@ -87,6 +87,18 @@ export declare namespace SessionTypes {
     accounts: string[];
   }
 
+  export interface WriteAccessParams {
+    [key: string]: {
+      proposer: boolean;
+      responder: boolean;
+    };
+  }
+
+  export interface RuleParams {
+    state: WriteAccessParams;
+    jsonrpc: string[];
+  }
+
   export interface WriteAccess {
     [key: string]: {
       [publicKey: string]: boolean;
@@ -94,7 +106,6 @@ export declare namespace SessionTypes {
   }
 
   export interface Rules {
-    peer: WriteAccess;
     state: WriteAccess;
     jsonrpc: string[];
   }
@@ -111,7 +122,7 @@ export declare namespace SessionTypes {
 
   export type Outcome = Failed | Success;
 
-  export interface Responded extends Omit<Proposal, "stateParams"> {
+  export interface Responded extends Omit<Omit<Proposal, "stateParams">, "ruleParams"> {
     outcome: Outcome;
   }
 }

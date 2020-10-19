@@ -98,12 +98,22 @@ export class Session extends ISession {
       try {
         const keyPair = generateKeyPair();
         const relay = proposal.relay;
+        const proposer = proposal.peer.publicKey;
+        const responder = keyPair.publicKey;
         const session = await this.settle({
           relay,
           keyPair,
           peer: proposal.peer,
           state: params.state,
-          rules: proposal.rules,
+          rules: {
+            state: {
+              accounts: {
+                [proposer]: proposal.ruleParams.state.accounts.proposer,
+                [responder]: proposal.ruleParams.state.accounts.responder,
+              },
+            },
+            jsonrpc: proposal.ruleParams.jsonrpc,
+          },
         });
 
         const responded: SessionTypes.Responded = {
@@ -170,7 +180,7 @@ export class Session extends ISession {
         metadata: params.metadata,
       },
       stateParams: params.stateParams,
-      rules: params.rules,
+      ruleParams: params.ruleParams,
       connection: {
         topic: connection.topic,
       },
@@ -233,12 +243,22 @@ export class Session extends ISession {
     const { relay } = proposed;
     if (!isSessionFailed(outcome)) {
       try {
+        const proposer = proposed.keyPair.publicKey;
+        const responder = outcome.publicKey;
         const session = await this.settle({
-          relay: relay,
+          relay,
           keyPair: proposed.keyPair,
           peer: proposed.proposal.peer,
           state: outcome.state,
-          rules: proposed.proposal.rules,
+          rules: {
+            state: {
+              accounts: {
+                [proposer]: proposed.proposal.ruleParams.state.accounts.proposer,
+                [responder]: proposed.proposal.ruleParams.state.accounts.responder,
+              },
+            },
+            jsonrpc: proposed.proposal.ruleParams.jsonrpc,
+          },
         });
         const response = formatJsonRpcResult(request.id, true);
         this.client.relay.publish(topic, response, {
@@ -252,7 +272,6 @@ export class Session extends ISession {
           relay: relay,
           topic: proposed.topic,
           peer: proposed.proposal.peer,
-          rules: proposed.proposal.rules,
           connection: proposed.proposal.connection,
           outcome: {
             topic: session.topic,
@@ -282,7 +301,6 @@ export class Session extends ISession {
           relay: relay,
           topic: proposed.topic,
           peer: proposed.proposal.peer,
-          rules: proposed.proposal.rules,
           connection: proposed.proposal.connection,
           outcome: { reason },
         };
@@ -308,7 +326,6 @@ export class Session extends ISession {
         relay: relay,
         topic: proposed.topic,
         peer: proposed.proposal.peer,
-        rules: proposed.proposal.rules,
         connection: proposed.proposal.connection,
         outcome: { reason },
       };
