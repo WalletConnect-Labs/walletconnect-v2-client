@@ -1,16 +1,6 @@
-import * as rpcJsonUtils from "rpc-json-utils";
+import { JsonRpcRequest } from "rpc-json-utils";
+
 import { IEvents } from "./events";
-
-export type JsonRpcRequest = rpcJsonUtils.JsonRpcRequest;
-
-export type JsonRpcResult = rpcJsonUtils.JsonRpcResult;
-
-export type JsonRpcError = rpcJsonUtils.JsonRpcError;
-
-export type JsonRpcResponse = JsonRpcResult | JsonRpcError;
-
-export type JsonRpcPayload = JsonRpcRequest | JsonRpcResponse;
-export type ErrorResponse = rpcJsonUtils.ErrorResponse;
 
 export abstract class IJsonRpcProvider extends IEvents {
   constructor() {

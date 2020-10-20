@@ -1,3 +1,4 @@
+export * from "./bridge";
 export * from "./events";
 export * from "./client";
 export * from "./connection";

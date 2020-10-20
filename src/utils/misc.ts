@@ -1,16 +1,3 @@
-import * as safeJsonUtils from "safe-json-utils";
-import * as jsonRpcUtils from "rpc-json-utils";
-
-// -- JSON -------------------------------------------------- //
-
-export const safeJsonParse = safeJsonUtils.safeJsonParse;
-
-export const safeJsonStringify = safeJsonUtils.safeJsonStringify;
-
-// -- id -------------------------------------------------- //
-
-export const payloadId = jsonRpcUtils.payloadId;
-
 // -- assert ------------------------------------------------- //
 
 export function assertType(obj: any, key: string, type: string) {

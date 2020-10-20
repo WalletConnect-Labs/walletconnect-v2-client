@@ -1,4 +1,5 @@
 import { EventEmitter } from "events";
+import { JsonRpcPayload, JsonRpcRequest, isJsonRpcRequest } from "rpc-json-utils";
 
 import { Store, Connection, Session, Relay } from "./controllers";
 import {
@@ -7,18 +8,9 @@ import {
   ClientConnectParams,
   ClientDisconnectParams,
   ConnectionTypes,
-  JsonRpcPayload,
   SessionTypes,
-  JsonRpcRequest,
 } from "../types";
-import {
-  formatUri,
-  getAppMetadata,
-  getAppMetadataFromDid,
-  getSessionMetadata,
-  isJsonRpcRequest,
-} from "../utils";
-import { timeStamp } from "console";
+import { formatUri, getAppMetadata } from "../utils";
 import {
   CONNECTION_CONTEXT,
   CONNECTION_EVENTS,

@@ -1,26 +1,23 @@
 import { EventEmitter } from "events";
-
-import { Subscription } from "./subscription";
 import {
-  ConnectionTypes,
-  IClient,
-  IConnection,
   JsonRpcPayload,
   JsonRpcRequest,
   JsonRpcResponse,
-  SubscriptionEvent,
-} from "../../types";
-import {
-  deriveSharedKey,
   formatJsonRpcError,
   formatJsonRpcRequest,
   formatJsonRpcResult,
+  isJsonRpcError,
+  isJsonRpcRequest,
+} from "rpc-json-utils";
+
+import { Subscription } from "./subscription";
+import { ConnectionTypes, IClient, IConnection, SubscriptionEvent } from "../../types";
+import {
+  deriveSharedKey,
   generateKeyPair,
   generateRandomBytes32,
   getConnectionMetadata,
   isConnectionFailed,
-  isJsonRpcError,
-  isJsonRpcRequest,
   mapEntries,
   sha256,
 } from "../../utils";

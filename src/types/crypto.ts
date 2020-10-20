@@ -3,10 +3,10 @@ export interface KeyPair {
   publicKey: string;
 }
 
-export interface EncryptedMessage {
-  iv: string;
-  mac: string;
-  data: string;
+export interface EncryptedBuffer {
+  iv: Buffer;
+  mac: Buffer;
+  data: Buffer;
 }
 
 export interface EncryptParams {
@@ -16,7 +16,7 @@ export interface EncryptParams {
 }
 
 export interface DecryptParams {
-  encrypted: EncryptedMessage;
+  encrypted: string;
   sharedKey: string;
   publicKey: string;
 }

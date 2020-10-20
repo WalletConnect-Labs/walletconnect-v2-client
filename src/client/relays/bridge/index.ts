@@ -1,8 +1,16 @@
 import { EventEmitter } from "events";
+import { JsonRpcRequest, formatJsonRpcRequest } from "rpc-json-utils";
 
-import { IJsonRpcProvider, IRelayClient } from "../../../types";
+import {
+  IJsonRpcProvider,
+  IRelayClient,
+  BridgePublishParams,
+  BridgeSubscribeParams,
+  BridgeSubscriptionParams,
+  BridgeUnsubscribeParams,
+} from "../../../types";
+import { BRIDGE_JSONRPC } from "../../constants";
 import { BridgeProvider } from "./provider";
-import { formatJsonRpcRequest, payloadId } from "../../../utils";
 
 export class BridgeClient extends IRelayClient {
   public events = new EventEmitter();
@@ -12,10 +20,10 @@ export class BridgeClient extends IRelayClient {
   constructor(provider?: IJsonRpcProvider) {
     super();
     this.provider = provider || new BridgeProvider();
-    this.provider.on("message", this.onMessage);
+    this.provider.on("request", this.onRequest);
   }
 
-  public async connect(): Promise<any> {
+  public async connect(): Promise<void> {
     await this.provider.connect();
   }
 
@@ -25,34 +33,34 @@ export class BridgeClient extends IRelayClient {
 
   public publish(topic: string, message: string): void {
     this.provider.request(
-      formatJsonRpcRequest("bridge_publish", {
+      formatJsonRpcRequest(BRIDGE_JSONRPC.publish, {
         topic,
         message,
         ttl: 86400,
-      }),
+      } as BridgePublishParams),
     );
   }
 
-  public subscribe = (topic: string, listener: (message: string) => void): any => {
-    return this.provider
+  public subscribe = (topic: string, listener: (message: string) => void): void => {
+    this.provider
       .request(
-        formatJsonRpcRequest("bridge_subscribe", {
+        formatJsonRpcRequest(BRIDGE_JSONRPC.subscribe, {
           topic,
           ttl: 86400,
-        }),
+        } as BridgeSubscribeParams),
       )
       .then(id => {
         this.events.on(id, listener);
       });
   };
 
-  public unsubscribe = (topic: string, listener: (message: string) => void): any => {
-    return this.provider
+  public unsubscribe = (topic: string, listener: (message: string) => void): void => {
+    this.provider
       .request(
-        formatJsonRpcRequest("bridge_unsubscribe", {
+        formatJsonRpcRequest(BRIDGE_JSONRPC.unsubscribe, {
           topic,
           ttl: 86400,
-        }),
+        } as BridgeUnsubscribeParams),
       )
       .then(id => {
         this.events.off(id, listener);
@@ -73,12 +81,12 @@ export class BridgeClient extends IRelayClient {
 
   // ---------- Private ----------------------------------------------- //
 
-  private onMessage(e: any) {
-    const payload = JSON.parse(e.data);
-    if (payload.method === "bridge_subscription") {
-      this.events.emit(payload.params.topic, payload.params.payload);
+  private onRequest(request: JsonRpcRequest) {
+    if (request.method === BRIDGE_JSONRPC.subscription) {
+      const params = request.params as BridgeSubscriptionParams;
+      this.events.emit(params.topic, params.message);
     } else {
-      this.events.emit(`${payload.id}`, payload);
+      this.events.emit("request", request);
     }
   }
 }

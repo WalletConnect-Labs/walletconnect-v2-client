@@ -1,7 +1,8 @@
 import { EventEmitter } from "events";
+import { safeJsonStringify } from "safe-json-utils";
+import { JsonRpcPayload, JsonRpcRequest, isJsonRpcResponse } from "rpc-json-utils";
 
-import { JsonRpcRequest, IJsonRpcProvider } from "../../../types";
-import { safeJsonStringify } from "../../../utils";
+import { IJsonRpcProvider } from "../../../types";
 
 const WS =
   // @ts-ignore
@@ -60,8 +61,12 @@ export class BridgeProvider extends IJsonRpcProvider {
     });
   }
 
-  private onMessage(e: any) {
-    const payload = JSON.parse(e.data);
-    this.events.emit(`${payload.id}`, payload);
+  private onMessage(e: MessageEvent) {
+    const payload = JSON.parse(e.data) as JsonRpcPayload;
+    if (isJsonRpcResponse(payload)) {
+      this.events.emit(`${payload.id}`, payload);
+    } else {
+      this.events.emit("request", payload);
+    }
   }
 }

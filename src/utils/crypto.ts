@@ -1,7 +1,7 @@
 import * as eccryptoJS from "eccrypto-js";
 import * as encUtils from "enc-utils";
 
-import { DecryptParams, EncryptedMessage, EncryptParams, KeyPair } from "../types";
+import { DecryptParams, EncryptedBuffer, EncryptParams, KeyPair } from "../types";
 
 export function generateKeyPair(): KeyPair {
   const keyPairBuffer = eccryptoJS.generateKeyPair();
@@ -36,33 +36,38 @@ async function getEciesKeys(sharedKeyHex: string, publicKeyHex: string) {
   return { publicKey, key, macKey };
 }
 
-export async function encrypt(params: EncryptParams): Promise<EncryptedMessage> {
+export function encodeEncryptedMessage(encryptedBuffer: EncryptedBuffer): string {
+  return (
+    encUtils.bufferToHex(encryptedBuffer.iv) +
+    encUtils.bufferToHex(encryptedBuffer.mac) +
+    encUtils.bufferToHex(encryptedBuffer.data)
+  );
+}
+
+export async function encrypt(params: EncryptParams): Promise<string> {
   const { publicKey, key, macKey } = await getEciesKeys(params.sharedKey, params.publicKey);
   const iv = eccryptoJS.randomBytes(eccryptoJS.IV_LENGTH);
   const msg = encUtils.utf8ToBuffer(params.message);
   const data = await eccryptoJS.aesCbcEncrypt(iv, key, msg);
   const dataToMac = encUtils.concatBuffers(iv, publicKey, data);
   const mac = await eccryptoJS.hmacSha256Sign(macKey, dataToMac);
-  return {
-    iv: encUtils.bufferToHex(iv),
-    mac: encUtils.bufferToHex(mac),
-    data: encUtils.bufferToHex(data),
-  };
+  return encodeEncryptedMessage({ iv, mac, data });
 }
 
-function parseEncryptedMessage(
-  encrypted: EncryptedMessage,
-): { iv: Buffer; mac: Buffer; data: Buffer } {
+export function decodeEncryptedMessage(encrypted: string): EncryptedBuffer {
+  const slice0 = eccryptoJS.LENGTH_0;
+  const slice1 = slice0 + eccryptoJS.IV_LENGTH;
+  const slice2 = slice1 + eccryptoJS.KEY_LENGTH;
   return {
-    iv: encUtils.hexToBuffer(encrypted.iv),
-    mac: encUtils.hexToBuffer(encrypted.mac),
-    data: encUtils.hexToBuffer(encrypted.data),
+    iv: encUtils.hexToBuffer(encrypted.slice(slice0, slice1)),
+    mac: encUtils.hexToBuffer(encrypted.slice(slice1, slice2)),
+    data: encUtils.hexToBuffer(encrypted.slice(slice2)),
   };
 }
 
 export async function decrypt(params: DecryptParams): Promise<string> {
   const { publicKey, key, macKey } = await getEciesKeys(params.sharedKey, params.publicKey);
-  const { iv, mac, data } = parseEncryptedMessage(params.encrypted);
+  const { iv, mac, data } = decodeEncryptedMessage(params.encrypted);
   const dataToMac = encUtils.concatBuffers(iv, publicKey, data);
   const macTest = await eccryptoJS.hmacSha256Verify(macKey, dataToMac, mac);
   eccryptoJS.assert(macTest, eccryptoJS.ERROR_BAD_MAC);

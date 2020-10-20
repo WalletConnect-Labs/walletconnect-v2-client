@@ -1,6 +1,7 @@
+import { JsonRpcPayload } from "rpc-json-utils";
+
 import { IClient } from "./client";
 import { IEvents } from "./events";
-import { JsonRpcPayload } from "./jsonrpc";
 import { RelaySubscribeOptions } from "./relay";
 
 export interface SubscriptionContext {

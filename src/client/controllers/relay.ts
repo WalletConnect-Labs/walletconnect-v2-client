@@ -1,4 +1,6 @@
 import { EventEmitter } from "events";
+import { JsonRpcPayload } from "rpc-json-utils";
+import { safeJsonParse, safeJsonStringify } from "safe-json-utils";
 
 import { Relays } from "../relays";
 import {
@@ -7,10 +9,9 @@ import {
   RelaySubscribeOptions,
   RelayClients,
   IRelay,
-  JsonRpcPayload,
 } from "../../types";
 import { DEFAULT_RELAY } from "../constants";
-import { encrypt, decrypt, safeJsonParse, safeJsonStringify } from "../../utils";
+import { encrypt, decrypt } from "../../utils";
 
 export class Relay extends IRelay {
   public default = DEFAULT_RELAY;
@@ -34,16 +35,19 @@ export class Relay extends IRelay {
     await Promise.all(Object.keys(this.clients).map(name => this.clients[name].connect()));
   }
 
-  public publish(topic: string, payload: JsonRpcPayload, opts?: RelayPublishOptions): any {
+  public async publish(
+    topic: string,
+    payload: JsonRpcPayload,
+    opts?: RelayPublishOptions,
+  ): Promise<void> {
     const relay = opts?.relay || this.default;
-    const message = safeJsonStringify(
-      opts?.encrypt
-        ? encrypt({
-            ...opts.encrypt,
-            message: safeJsonStringify(payload),
-          })
-        : payload,
-    );
+    const msg = safeJsonStringify(payload);
+    const message = opts?.encrypt
+      ? await encrypt({
+          ...opts.encrypt,
+          message: msg,
+        })
+      : msg;
     this.clients[relay].publish(topic, message);
   }
 
@@ -51,18 +55,17 @@ export class Relay extends IRelay {
     topic: string,
     listener: (payload: JsonRpcPayload) => void,
     opts?: RelaySubscribeOptions,
-  ): any {
+  ): void {
     const relay = opts?.relay || this.default;
-    this.clients[relay].subscribe(topic, (message: string) => {
-      const json = safeJsonParse(message);
-      const payload = opts?.decrypt
-        ? safeJsonParse(
-            decrypt({
+    this.clients[relay].subscribe(topic, async (message: string) => {
+      const payload = safeJsonParse(
+        opts?.decrypt
+          ? await decrypt({
               ...opts.decrypt,
-              encrypted: json,
-            }),
-          )
-        : json;
+              encrypted: message,
+            })
+          : message,
+      );
       listener(payload);
     });
   }
@@ -71,18 +74,17 @@ export class Relay extends IRelay {
     topic: string,
     listener: (payload: JsonRpcPayload) => void,
     opts?: RelaySubscribeOptions,
-  ): any {
+  ): void {
     const relay = opts?.relay || this.default;
-    this.clients[relay].unsubscribe(topic, (message: string) => {
-      const json = safeJsonParse(message);
-      const payload = opts?.decrypt
-        ? safeJsonParse(
-            decrypt({
+    this.clients[relay].unsubscribe(topic, async (message: string) => {
+      const payload = safeJsonParse(
+        opts?.decrypt
+          ? await decrypt({
               ...opts.decrypt,
-              encrypted: json,
-            }),
-          )
-        : json;
+              encrypted: message,
+            })
+          : message,
+      );
       listener(payload);
     });
   }

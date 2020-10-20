@@ -2,7 +2,12 @@ import * as queryStringUtils from "query-string";
 
 // -- uri -------------------------------------------------- //
 
-export function formatUri(protocol: string, version: number, topic: string, params: any) {
+export function formatUri(
+  protocol: string,
+  version: number,
+  topic: string,
+  params: Record<string, string>,
+) {
   return `${protocol}:${topic}@${version}` + queryStringUtils.stringify(params);
 }
 

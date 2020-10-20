@@ -1,22 +1,19 @@
 import { EventEmitter } from "events";
-
-import { Subscription } from "./subscription";
 import {
-  IClient,
-  ISession,
   JsonRpcPayload,
   JsonRpcRequest,
-  SessionTypes,
-  SubscriptionEvent,
-} from "../../types";
-import {
-  deriveSharedKey,
   formatJsonRpcError,
   formatJsonRpcRequest,
   formatJsonRpcResult,
+  isJsonRpcRequest,
+} from "rpc-json-utils";
+
+import { Subscription } from "./subscription";
+import { IClient, ISession, SessionTypes, SubscriptionEvent } from "../../types";
+import {
+  deriveSharedKey,
   generateKeyPair,
   generateRandomBytes32,
-  isJsonRpcRequest,
   isSessionFailed,
   mapEntries,
   sha256,
@@ -147,8 +144,17 @@ export class Session extends ISession {
   }
 
   public async update(params: SessionTypes.UpdateParams): Promise<SessionTypes.Settled> {
-    // TODO: implement respond
-    return {} as SessionTypes.Settled;
+    const session = await this.settled.get(params.topic);
+    const update = await this.handleUpdate(session, params);
+    const request = formatJsonRpcRequest(SESSION_JSONRPC.update, update);
+    this.client.relay.publish(session.topic, request, {
+      relay: session.relay,
+      encrypt: {
+        sharedKey: session.sharedKey,
+        publicKey: session.keyPair.publicKey,
+      },
+    });
+    return session;
   }
 
   public async delete(params: SessionTypes.DeleteParams): Promise<void> {

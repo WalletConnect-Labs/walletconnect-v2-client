@@ -1,9 +1,9 @@
 import { EventEmitter } from "events";
+import { JsonRpcPayload } from "rpc-json-utils";
 
 import {
   IClient,
   ISubscription,
-  JsonRpcPayload,
   SubscriptionContext,
   SubscriptionEntries,
   SubscriptionEvent,
