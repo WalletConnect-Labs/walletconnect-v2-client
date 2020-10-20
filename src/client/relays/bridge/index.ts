@@ -9,7 +9,7 @@ import {
   BridgeSubscriptionParams,
   BridgeUnsubscribeParams,
 } from "../../../types";
-import { BRIDGE_JSONRPC } from "../../constants";
+import { BRIDGE_DEFAULT_TTL, BRIDGE_JSONRPC } from "../../constants";
 import { BridgeProvider } from "./provider";
 
 export class BridgeClient extends IRelayClient {
@@ -36,7 +36,7 @@ export class BridgeClient extends IRelayClient {
       formatJsonRpcRequest(BRIDGE_JSONRPC.publish, {
         topic,
         message,
-        ttl: 86400,
+        ttl: BRIDGE_DEFAULT_TTL,
       } as BridgePublishParams),
     );
   }
@@ -46,7 +46,7 @@ export class BridgeClient extends IRelayClient {
       .request(
         formatJsonRpcRequest(BRIDGE_JSONRPC.subscribe, {
           topic,
-          ttl: 86400,
+          ttl: BRIDGE_DEFAULT_TTL,
         } as BridgeSubscribeParams),
       )
       .then(id => {
@@ -59,7 +59,7 @@ export class BridgeClient extends IRelayClient {
       .request(
         formatJsonRpcRequest(BRIDGE_JSONRPC.unsubscribe, {
           topic,
-          ttl: 86400,
+          ttl: BRIDGE_DEFAULT_TTL,
         } as BridgeUnsubscribeParams),
       )
       .then(id => {

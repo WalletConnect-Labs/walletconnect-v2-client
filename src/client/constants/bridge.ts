@@ -4,3 +4,5 @@ export const BRIDGE_JSONRPC = {
   subscription: "bridge_subscription",
   unsubscribe: "bridge_unsubscribe",
 };
+
+export const BRIDGE_DEFAULT_TTL = 86400;
