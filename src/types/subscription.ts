@@ -2,7 +2,7 @@ import { JsonRpcPayload } from "rpc-json-utils";
 
 import { IClient } from "./client";
 import { IEvents } from "./events";
-import { RelaySubscribeOptions } from "./relay";
+import { RelayProtocolOptions, RelaySubscribeOptions } from "./relay";
 
 export interface SubscriptionContext {
   name: string;
@@ -11,7 +11,7 @@ export interface SubscriptionContext {
 }
 
 export interface SubscriptionOptions extends RelaySubscribeOptions {
-  relay: string;
+  relay: RelayProtocolOptions;
 }
 export interface SubscriptionParams<Data> {
   topic: string;

@@ -1,4 +1,3 @@
-export * from "./bridge";
 export * from "./connection";
 export * from "./relay";
 export * from "./session";

@@ -1,4 +1,6 @@
-import { IRelay, RelayUserOptions } from "./relay";
+import { IJsonRpcProvider } from "rpc-json-utils";
+
+import { IRelay, RelayProtocolOptions } from "./relay";
 import { IConnection } from "./connection";
 import { ISession, SessionTypes } from "./session";
 import { IStore } from "./store";
@@ -6,14 +8,14 @@ import { IEvents } from "./events";
 
 export interface ClientOptions {
   store?: IStore;
-  relay?: RelayUserOptions;
+  relayProvider?: IJsonRpcProvider;
 }
 
 export interface ClientConnectParams {
   chains: string[];
   jsonrpc: string[];
   app?: string | SessionTypes.Metadata;
-  relay?: string;
+  relay?: RelayProtocolOptions;
 }
 
 export interface ClientDisconnectParams {

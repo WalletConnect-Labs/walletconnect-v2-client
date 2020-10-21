@@ -1,44 +1,49 @@
-import { JsonRpcPayload } from "rpc-json-utils";
+import { IJsonRpcProvider, JsonRpcPayload } from "rpc-json-utils";
 
 import { DecryptParams, EncryptParams } from "./crypto";
 import { IEvents } from "./events";
-import { IJsonRpcProvider } from "./jsonrpc";
 
-export abstract class IRelayClient extends IEvents {
-  public abstract provider: IJsonRpcProvider;
+export interface RelayProtocolOptions {
+  protocol: string;
+  params?: any;
+}
 
-  constructor(relayOptions?: RelayClientOptions) {
-    super();
-  }
+export interface RelaySubscribeParams {
+  topic: string;
+  ttl: number;
+}
 
-  public abstract connect(): Promise<any>;
+export interface RelayPublishParams {
+  topic: string;
+  message: string;
+  ttl: number;
+}
 
-  public abstract disconnect(): Promise<void>;
+export interface RelaySubscriptionParams {
+  topic: string;
+  message: string;
+}
 
-  public abstract publish(topic: string, message: string): void;
-
-  public abstract subscribe(topic: string, listener: (message: string) => void): void;
-
-  public abstract unsubscribe(topic: string, listener: (message: string) => void): void;
+export interface RelayUnsubscribeParams {
+  topic: string;
 }
 
 export interface RelayPublishOptions {
-  relay?: string;
+  relay: RelayProtocolOptions;
   encrypt?: Omit<EncryptParams, "message">;
 }
 export interface RelaySubscribeOptions {
-  relay?: string;
+  relay: RelayProtocolOptions;
   decrypt?: Omit<DecryptParams, "encrypted">;
 }
 export abstract class IRelay extends IEvents {
-  public abstract default: string;
-  public abstract clients: RelayClients;
+  public abstract provider: IJsonRpcProvider;
 
-  constructor(opts: RelayUserOptions = {}) {
+  constructor(provider?: IJsonRpcProvider) {
     super();
   }
 
-  public abstract init(opts?: RelayUserOptions): Promise<void>;
+  public abstract init(): Promise<void>;
 
   public abstract publish(
     topic: string,
@@ -50,25 +55,11 @@ export abstract class IRelay extends IEvents {
     topic: string,
     listener: (payload: JsonRpcPayload) => void,
     opts?: RelaySubscribeOptions,
-  ): void;
+  ): Promise<void>;
 
   public abstract unsubscribe(
     topic: string,
     listener: (payload: JsonRpcPayload) => void,
     opts?: RelaySubscribeOptions,
-  ): void;
-}
-
-export interface RelayClientOptions {
-  provider?: IJsonRpcProvider;
-  providerOpts?: any;
-}
-
-export interface RelayUserOptions {
-  default?: string;
-  [relay: string]: any;
-}
-
-export interface RelayClients {
-  [relay: string]: IRelayClient;
+  ): Promise<void>;
 }

@@ -14,6 +14,7 @@ import { formatUri, getAppMetadata } from "../utils";
 import {
   CONNECTION_CONTEXT,
   CONNECTION_EVENTS,
+  RELAY_DEFAULT_PROTOCOL,
   SESSION_CONTEXT,
   SESSION_EVENTS,
   SESSION_JSONRPC,
@@ -40,7 +41,7 @@ export class Client extends IClient {
   constructor(opts?: ClientOptions) {
     super(opts);
 
-    this.relay = new Relay(opts?.relay);
+    this.relay = new Relay(opts?.relayProvider);
     this.store = opts?.store || new Store();
 
     this.connection = new Connection(this);
@@ -80,7 +81,7 @@ export class Client extends IClient {
     }
     const session = await this.session.create({
       connection: { topic: connection.topic },
-      relay: params.relay || this.relay.default,
+      relay: params.relay || { protocol: RELAY_DEFAULT_PROTOCOL },
       metadata: getAppMetadata(params.app),
       stateParams: {
         chains: params.chains,

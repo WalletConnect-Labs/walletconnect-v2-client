@@ -30,6 +30,7 @@ import {
   CONNECTION_STATUS,
   SESSION_JSONRPC_BEFORE_SETTLEMENT,
   SUBSCRIPTION_EVENTS,
+  RELAY_DEFAULT_PROTOCOL,
 } from "../constants";
 
 export class Connection extends IConnection {
@@ -167,7 +168,7 @@ export class Connection extends IConnection {
   protected async propose(
     params?: ConnectionTypes.ProposeParams,
   ): Promise<ConnectionTypes.Proposal> {
-    const relay = params?.relay || this.client.relay.default;
+    const relay = params?.relay || { protocol: RELAY_DEFAULT_PROTOCOL };
     const topic = generateRandomBytes32();
     const keyPair = generateKeyPair();
     const proposal: ConnectionTypes.Proposal = {

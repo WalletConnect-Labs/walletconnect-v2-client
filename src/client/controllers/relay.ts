@@ -1,38 +1,38 @@
 import { EventEmitter } from "events";
-import { JsonRpcPayload } from "rpc-json-utils";
+import {
+  IJsonRpcProvider,
+  formatJsonRpcRequest,
+  JsonRpcPayload,
+  JsonRpcRequest,
+} from "rpc-json-utils";
 import { safeJsonParse, safeJsonStringify } from "safe-json-utils";
 
-import { Relays } from "../relays";
 import {
-  RelayUserOptions,
   RelayPublishOptions,
   RelaySubscribeOptions,
-  RelayClients,
   IRelay,
+  RelayPublishParams,
+  RelaySubscribeParams,
+  RelaySubscriptionParams,
+  RelayUnsubscribeParams,
 } from "../../types";
-import { DEFAULT_RELAY } from "../constants";
 import { encrypt, decrypt } from "../../utils";
+import { RELAY_DEFAULT_PROTOCOL, RELAY_DEFAULT_TTL } from "../constants";
+import { WSProvider } from "../providers";
 
 export class Relay extends IRelay {
-  public default = DEFAULT_RELAY;
-  public clients: RelayClients = {};
-
   public events = new EventEmitter();
 
-  constructor(opts: RelayUserOptions = {}) {
+  public provider: IJsonRpcProvider;
+
+  constructor(provider?: IJsonRpcProvider) {
     super();
-    if (Object.keys(opts)) {
-      this.assertRelayOpts(opts);
-    }
-    this.default = opts.default || DEFAULT_RELAY;
-    Object.keys(Relays).forEach(name => {
-      const RelayClient = Relays[name];
-      this.clients[name] = new RelayClient(opts[name]);
-    });
+    this.provider = provider || new WSProvider("wss://relay.walletconnect.org");
+    this.provider.on("request", this.onRequest);
   }
 
-  public async init(opts: RelayUserOptions = {}): Promise<void> {
-    await Promise.all(Object.keys(this.clients).map(name => this.clients[name].connect()));
+  public async init(): Promise<void> {
+    await this.provider.connect();
   }
 
   public async publish(
@@ -40,7 +40,7 @@ export class Relay extends IRelay {
     payload: JsonRpcPayload,
     opts?: RelayPublishOptions,
   ): Promise<void> {
-    const relay = opts?.relay || this.default;
+    const protocol = opts?.relay.protocol || RELAY_DEFAULT_PROTOCOL;
     const msg = safeJsonStringify(payload);
     const message = opts?.encrypt
       ? await encrypt({
@@ -48,16 +48,26 @@ export class Relay extends IRelay {
           message: msg,
         })
       : msg;
-    this.clients[relay].publish(topic, message);
+    const request = formatJsonRpcRequest<RelayPublishParams>(`${protocol}_publish`, {
+      topic,
+      message,
+      ttl: RELAY_DEFAULT_TTL,
+    } as RelayPublishParams);
+    this.provider.request(request);
   }
 
-  public subscribe(
+  public async subscribe(
     topic: string,
     listener: (payload: JsonRpcPayload) => void,
     opts?: RelaySubscribeOptions,
-  ): void {
-    const relay = opts?.relay || this.default;
-    this.clients[relay].subscribe(topic, async (message: string) => {
+  ): Promise<void> {
+    const protocol = opts?.relay.protocol || RELAY_DEFAULT_PROTOCOL;
+    const request = formatJsonRpcRequest<RelaySubscribeParams>(`${protocol}_subscribe`, {
+      topic,
+      ttl: RELAY_DEFAULT_TTL,
+    });
+    const id = await this.provider.request(request);
+    this.events.on(id, async (message: string) => {
       const payload = safeJsonParse(
         opts?.decrypt
           ? await decrypt({
@@ -70,13 +80,17 @@ export class Relay extends IRelay {
     });
   }
 
-  public unsubscribe(
+  public async unsubscribe(
     topic: string,
     listener: (payload: JsonRpcPayload) => void,
     opts?: RelaySubscribeOptions,
-  ): void {
-    const relay = opts?.relay || this.default;
-    this.clients[relay].unsubscribe(topic, async (message: string) => {
+  ): Promise<void> {
+    const protocol = opts?.relay.protocol || RELAY_DEFAULT_PROTOCOL;
+    const request = formatJsonRpcRequest<RelayUnsubscribeParams>(`${protocol}_unsubscribe`, {
+      topic,
+    });
+    const id = await this.provider.request(request);
+    this.events.off(id, async (message: string) => {
       const payload = safeJsonParse(
         opts?.decrypt
           ? await decrypt({
@@ -103,11 +117,12 @@ export class Relay extends IRelay {
 
   // ---------- Private ----------------------------------------------- //
 
-  private assertRelayOpts(opts: RelayUserOptions) {
-    Object.keys(opts).forEach(key => {
-      if (!Object.keys(Relays).includes(key)) {
-        throw new Error(`${key} relay is not supported or invalid`);
-      }
-    });
+  private onRequest(request: JsonRpcRequest) {
+    if (request.method.endsWith("_subscription")) {
+      const params = request.params as RelaySubscriptionParams;
+      this.events.emit(params.topic, params.message);
+    } else {
+      this.events.emit("request", request);
+    }
   }
 }
