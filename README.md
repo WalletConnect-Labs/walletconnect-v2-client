@@ -1,7 +1,5 @@
-# WalletConnect v2.x.x
+# WalletConnect Javascript Client
 
-Open protocol for connecting Wallets to Dapps - https://walletconnect.org
+Javascript Server for connecting with WalletConnect protocol
 
-## License
-
-LGPL-3.0
+**[ARCHIVED]** This repository has been migrated to [walletconnect-v2-monorepo](https://github.com/WalletConnect-Labs/walletconnect-v2-monorepo)
